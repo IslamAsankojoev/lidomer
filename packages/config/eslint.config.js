@@ -11,6 +11,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/migrations/**',
       '**/next-env.d.ts',
+      '**/.vercel/**',
     ],
   },
   js.configs.recommended,
