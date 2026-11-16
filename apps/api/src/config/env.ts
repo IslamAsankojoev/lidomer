@@ -19,6 +19,8 @@ export const envSchema = z.object({
     .refine((v) => Buffer.from(v, 'base64').length === 32, 'Нужно 32 байта в base64'),
   /** Секрет вызова POST /jobs/tick из Supabase Cron. */
   CRON_SECRET: z.string().min(32),
+  /** Токен бота от @BotFather. Без него отчёты и алерты не отправляются. */
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
   META_APP_ID: z.string().optional(),
   META_APP_SECRET: z.string().optional(),
   LOG_LEVEL: z.enum(['silent', 'fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),

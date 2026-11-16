@@ -8,6 +8,8 @@ import { describeError, SECRET_BOX } from '../integrations/integrations.service'
 import { IntegrationsRepository } from '../integrations/integrations.repository';
 import { type AdapterRegistry, SOURCE_ADAPTERS } from '../sources/registry';
 import { FxService } from '../reconciliation/fx.service';
+import { ReportsService } from '../reports/reports.service';
+import { TelegramService } from '../reports/telegram.service';
 import { ReconciliationService } from '../reconciliation/reconciliation.service';
 import { JobQueue, jobMessageSchema } from './queue';
 
@@ -43,6 +45,8 @@ export class JobRunner {
     @Inject(SECRET_BOX) private readonly box: SecretBox,
     @Inject(ReconciliationService) private readonly reconciliation: ReconciliationService,
     @Inject(FxService) private readonly fx: FxService,
+    @Inject(ReportsService) private readonly reports: ReportsService,
+    @Inject(TelegramService) private readonly telegram: TelegramService,
   ) {}
 
   async tick(budgetMs: number, now = new Date()): Promise<TickReport> {
@@ -54,6 +58,16 @@ export class JobRunner {
       rebuilt: 0,
     };
     await this.fx.ensureToday();
+    // Отчёты, у которых наступило время: один запуск на слот — в очередь.
+    const due = await this.reports.schedule(now);
+    await this.queue.send(
+      due.map((d) => ({
+        workspaceId: d.workspaceId,
+        kind: 'report:run',
+        params: { runId: d.runId },
+      })),
+    );
+    report.scheduled += due.length;
     const touched = new Set<string>();
     // Оставляем запас: задача и пересборка должны успеть до лимита функции.
     while (Date.now() < deadline - 25_000) {
@@ -77,6 +91,24 @@ export class JobRunner {
       }
     }
     return report;
+  }
+
+  /** Задача отчёта: ждём свежих данных (повтор через 2 минуты) или отправляем. */
+  private async processReport(msgId: number, readCount: number, runId: string): Promise<boolean> {
+    try {
+      const res = await this.reports.processRun(runId);
+      if (res === 'wait') await this.queue.retryIn(msgId, 120);
+      else await this.queue.delete(msgId);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.log.warn(`Отчёт ${runId} не отправлен: ${message}`);
+      if (readCount >= MAX_ATTEMPTS) {
+        await this.reports.markFailed(runId, message);
+        await this.queue.archive(msgId);
+      } else await this.queue.retryIn(msgId, 60 * readCount);
+      return false;
+    }
   }
 
   /** Плановые задачи всех подключений, которым пришло время. */
@@ -119,6 +151,12 @@ export class JobRunner {
       return false;
     }
     const msg = parsed.data;
+    if (msg.kind === 'report:run')
+      return this.processReport(msgId, readCount, String(msg.params.runId));
+    if (!msg.integrationId) {
+      await this.queue.archive(msgId);
+      return false;
+    }
     const row = await this.repo.getById(msg.integrationId);
     const adapter = row ? this.adapters[row.type] : undefined;
     if (!row || !adapter || !row.secretsEncrypted || row.status === 'disabled') {
@@ -176,6 +214,12 @@ export class JobRunner {
       const message = describeError(err);
       await this.repo.finishRun(runId, { error: message });
       const auth = err instanceof HttpError && (err.status === 401 || err.status === 403);
+      // Алерт — только при переходе в ошибку, а не на каждом повторе.
+      if (row.status !== 'error' && row.status !== 'reauth_required') {
+        await this.telegram
+          .integrationAlert(row.workspaceId, row.type, auth, message)
+          .catch(() => undefined);
+      }
       if (auth) {
         await this.repo.setStatus(row.id, 'reauth_required', message);
         await this.queue.archive(msgId);

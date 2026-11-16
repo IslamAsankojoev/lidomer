@@ -33,7 +33,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           return (
             <Link
               key={href}
-              href={href}
+              href={`${href}${suffix}`}
               onClick={onNavigate}
               aria-current={active ? 'page' : undefined}
               className={cn(
