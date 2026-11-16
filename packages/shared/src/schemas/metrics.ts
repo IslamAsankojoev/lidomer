@@ -137,3 +137,86 @@ export const countingResponseSchema = z.object({
   bitrixSources: z.array(bitrixSourceSchema),
 });
 export type CountingResponse = z.infer<typeof countingResponseSchema>;
+
+/** Тепловая карта «день недели × час»: cells[день 0=пн][час 0–23]. */
+export const heatmapResponseSchema = z.object({
+  cells: z.array(z.array(z.number().int()).length(24)).length(7),
+  total: z.number().int(),
+});
+export type HeatmapResponse = z.infer<typeof heatmapResponseSchema>;
+
+export const asksResponseSchema = z.object({
+  /** Лидов Ward за период и сколько из них с анкетой. */
+  wardLeads: z.number().int(),
+  withFacts: z.number().int(),
+  rooms: z.array(z.object({ label: z.string(), count: z.number().int() })),
+  complexes: z.array(z.object({ label: z.string(), count: z.number().int() })),
+});
+export type AsksResponse = z.infer<typeof asksResponseSchema>;
+
+/** Воронка Ward → Bitrix24 за период (по дню обращения). */
+export const funnelResponseSchema = z.object({
+  conversations: z.number().int(),
+  wardLeads: z.number().int(),
+  withPhone: z.number().int(),
+  withDeal: z.number().int(),
+  inWork: z.number().int(),
+  sales: z.number().int(),
+});
+export type FunnelResponse = z.infer<typeof funnelResponseSchema>;
+
+export const leadTimelineEventSchema = z.object({
+  at: z.string(),
+  kind: z.enum(['ad', 'ward_lead', 'deal_created', 'deal_updated', 'deal_closed', 'override']),
+  title: z.string(),
+  details: z.string().nullable(),
+});
+
+export const leadDetailResponseSchema = z.object({
+  item: leadItemSchema,
+  facts: z.record(z.string(), z.unknown()).nullable(),
+  sourceText: z.string().nullable(),
+  timeline: z.array(leadTimelineEventSchema),
+  overrides: z.array(
+    z.object({
+      id: z.number(),
+      field: z.string(),
+      value: z.unknown(),
+      reason: z.string(),
+      createdAt: z.string(),
+      revokedAt: z.string().nullable(),
+    }),
+  ),
+});
+export type LeadDetailResponse = z.infer<typeof leadDetailResponseSchema>;
+
+export const creativeItemSchema = z.object({
+  adKey: z.string(),
+  adName: z.string().nullable(),
+  campaignName: z.string().nullable(),
+  adsetName: z.string().nullable(),
+  leads: z.number().int(),
+  withPhone: z.number().int(),
+  sales: z.number().int(),
+  spendMinor: z.number().int().nullable(),
+  metaLeads: z.number().int().nullable(),
+  cplFactMinor: z.number().int().nullable(),
+});
+export type CreativeItem = z.infer<typeof creativeItemSchema>;
+export const creativesResponseSchema = z.object({
+  items: z.array(creativeItemSchema),
+  spendCurrency: z.string().nullable(),
+});
+
+export const updateWorkspaceRequestSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  timezone: z.string().refine((tz) => {
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Неизвестный часовой пояс'),
+});
+export type UpdateWorkspaceRequest = z.infer<typeof updateWorkspaceRequestSchema>;
