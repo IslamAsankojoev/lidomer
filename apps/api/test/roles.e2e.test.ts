@@ -265,7 +265,10 @@ describe('интеграции и задачи', () => {
 
   it('/jobs/tick без секрета или с чужим — 401', async () => {
     await request(app.getHttpServer()).post('/jobs/tick').expect(401);
-    await request(app.getHttpServer()).post('/jobs/tick').set('Authorization', 'Bearer wrong').expect(401);
+    await request(app.getHttpServer())
+      .post('/jobs/tick')
+      .set('Authorization', 'Bearer wrong')
+      .expect(401);
     await request(app.getHttpServer())
       .post('/jobs/tick')
       .set('Authorization', await as('owner'))
