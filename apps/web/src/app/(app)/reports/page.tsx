@@ -98,15 +98,21 @@ export default function ReportsPage() {
                   </button>
                 </li>
               </ol>
-              {canManage && !chats.data.botUsername && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-fit"
-                  onClick={() => actions.setup.mutate()}
-                >
-                  Подключить бота к кабинету
-                </Button>
+              {canManage && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.setup.mutate()}
+                    disabled={actions.setup.isPending}
+                  >
+                    {actions.setup.isPending ? 'Подключаем…' : 'Подключить бота к кабинету'}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Один раз после внесения токена или его смены — чтобы бот слышал команду
+                    /connect.
+                  </span>
+                </div>
               )}
               {chatList.length ? (
                 <ul className="divide-y rounded-lg border">
