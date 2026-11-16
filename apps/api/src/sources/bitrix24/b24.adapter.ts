@@ -1,5 +1,5 @@
-import { b24Deals, b24Stages } from '@lidomer/db';
-import { currencyDigits, normalizeStageSemantics } from '@lidomer/shared';
+import { b24Contacts, b24Deals, b24Stages } from '@lidomer/db';
+import { currencyDigits, normalizePhone, normalizeStageSemantics } from '@lidomer/shared';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { excludedSet } from '../../common/upsert';
@@ -25,6 +25,7 @@ const DEAL_FIELDS = [
   'UTM_CONTENT',
   'UTM_TERM',
   'ASSIGNED_BY_ID',
+  'CONTACT_ID',
   'DATE_CREATE',
   'DATE_MODIFY',
   'CLOSEDATE',
@@ -46,6 +47,7 @@ const dealSchema = z.looseObject({
   UTM_CONTENT: s,
   UTM_TERM: s,
   ASSIGNED_BY_ID: z.union([z.string(), z.number()]).nullish(),
+  CONTACT_ID: z.union([z.string(), z.number()]).nullish(),
   DATE_CREATE: s,
   DATE_MODIFY: s,
   CLOSEDATE: s,
@@ -89,6 +91,48 @@ export function pickDealStages<T extends { ENTITY_ID: string; STATUS_ID: string 
     out.push({ ...it, categoryId: m[1] ? Number(m[1]) : 0 });
   }
   return out;
+}
+
+const contactSchema = z.looseObject({
+  ID: z.union([z.string(), z.number()]),
+  NAME: s,
+  LAST_NAME: s,
+  PHONE: z.array(z.looseObject({ VALUE: z.string().nullish() })).nullish(),
+});
+
+/** Контакты сделок страницы: имя и первый телефон. Персональные данные — только в базу. */
+async function syncContacts(
+  api: B24Client,
+  ctx: { db: import('@lidomer/db').Db; workspaceId: string },
+  deals: B24Deal[],
+): Promise<number> {
+  const ids = [
+    ...new Set(deals.map((d) => text(d.CONTACT_ID)).filter((v): v is string => !!v && v !== '0')),
+  ];
+  if (!ids.length) return 0;
+  const contacts = listResponse(contactSchema).parse(
+    await api.call('crm.contact.list', {
+      filter: { '@ID': ids },
+      select: ['ID', 'NAME', 'LAST_NAME', 'PHONE'],
+      start: -1,
+    }),
+  ).result;
+  if (!contacts.length) return 0;
+  await ctx.db
+    .insert(b24Contacts)
+    .values(
+      contacts.map((c) => ({
+        workspaceId: ctx.workspaceId,
+        id: String(c.ID),
+        name: [c.NAME, c.LAST_NAME].filter(Boolean).join(' ') || null,
+        phone: (c.PHONE ?? []).map((p) => normalizePhone(p.VALUE)).find(Boolean) ?? null,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [b24Contacts.workspaceId, b24Contacts.id],
+      set: excludedSet(b24Contacts, ['workspaceId', 'id']),
+    });
+  return contacts.length;
 }
 
 const categoryListSchema = z.looseObject({
@@ -136,6 +180,7 @@ export function mapDeal(workspaceId: string, d: B24Deal) {
     utmContent: text(d.UTM_CONTENT),
     utmTerm: text(d.UTM_TERM),
     assignedById: text(d.ASSIGNED_BY_ID),
+    contactId: text(d.CONTACT_ID),
     createdAt: date(d.DATE_CREATE),
     updatedAt: date(d.DATE_MODIFY),
     closedAt: date(d.CLOSEDATE),
@@ -260,6 +305,7 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
               });
             records += page.length;
             afterId = String(page[page.length - 1]!.ID);
+            records += await syncContacts(api, ctx, page);
           }
           if (page.length < 50) return { records };
           // Не успеваем — продолжим следующей задачей с того же места.
