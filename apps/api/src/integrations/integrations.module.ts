@@ -10,15 +10,17 @@ import { createB24Adapter } from '../sources/bitrix24/b24.adapter';
 import { createMetaAdapter } from '../sources/meta/meta.adapter';
 import { createWardAdapter } from '../sources/ward/ward.adapter';
 import { WorkspacesModule } from '../workspaces/workspaces.module';
+import { B24StagesController, B24StagesRepository } from './b24-stages.controller';
 import { IntegrationsController } from './integrations.controller';
 import { IntegrationsRepository } from './integrations.repository';
 import { IntegrationsService, SECRET_BOX } from './integrations.service';
 
 @Module({
   imports: [WorkspacesModule],
-  controllers: [IntegrationsController, JobsController],
+  controllers: [B24StagesController, IntegrationsController, JobsController],
   providers: [
     IntegrationsRepository,
+    B24StagesRepository,
     IntegrationsService,
     JobQueue,
     JobRunner,

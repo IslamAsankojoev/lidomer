@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  dealStatusSchema,
   integrationStatusSchema,
   integrationTypeSchema,
   syncRunStatusSchema,
@@ -52,3 +53,27 @@ export const connectMetaRequestSchema = z.object({
   /** Код из Facebook Login for Business. */
   code: z.string().min(1),
 });
+
+export const b24StageSchema = z.object({
+  stageId: z.string(),
+  categoryId: z.number(),
+  categoryName: z.string().nullable(),
+  name: z.string(),
+  semantics: z.enum(['process', 'success', 'failure']),
+  /** Выбор владельца; null — действует статус по умолчанию. */
+  mappedStatus: dealStatusSchema.nullable(),
+  /** Итоговый статус: выбор владельца или по семантике Bitrix24. */
+  status: dealStatusSchema,
+  deals: z.number().int(),
+});
+export type B24Stage = z.infer<typeof b24StageSchema>;
+
+export const b24StagesResponseSchema = z.object({ stages: z.array(b24StageSchema) });
+
+export const updateStageMapRequestSchema = z.object({
+  mappings: z
+    .array(z.object({ stageId: z.string().min(1), status: dealStatusSchema.nullable() }))
+    .min(1)
+    .max(500),
+});
+export type UpdateStageMapRequest = z.infer<typeof updateStageMapRequestSchema>;

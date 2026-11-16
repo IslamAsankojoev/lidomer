@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ConnectForm } from './connect-form';
 import { RunsLog } from './runs-log';
+import { StageMap } from './stage-map';
 import { useIntegrationAction } from './use-integrations';
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -141,6 +142,29 @@ export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canMa
               </Collapsible>
             )}
           </>
+        )}
+
+        {s.type === 'bitrix24' && connected && (
+          <Collapsible>
+            <CollapsibleTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="group w-fit gap-1 px-0 text-muted-foreground"
+                />
+              }
+            >
+              Статусы сделок
+              <ChevronDown
+                className="size-4 transition-transform group-data-[panel-open]:rotate-180"
+                aria-hidden
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <StageMap canManage={canManage} />
+            </CollapsibleContent>
+          </Collapsible>
         )}
 
         {s.status !== 'not_connected' && (
