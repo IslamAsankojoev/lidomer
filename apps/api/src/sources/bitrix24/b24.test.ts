@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { RateLimiter } from '../../common/http';
-import { createB24Adapter, mapDeal, pickDealStages, toMinor } from './b24.adapter';
+import {
+  createB24Adapter,
+  detectFormFields,
+  mapDeal,
+  pickDealStages,
+  toMinor,
+} from './b24.adapter';
 import { B24Client, b24WebhookUrlSchema } from './b24.client';
 
 const noWait = async () => {};
@@ -120,7 +126,8 @@ describe('расписание и выгрузка Bitrix24', () => {
       ID: String(i + 1),
       TITLE: `Сделка ${i + 1}`,
     }));
-    const { fn, calls } = fakeFetch((_m, body) => {
+    const { fn, calls } = fakeFetch((m, body) => {
+      if (m === 'crm.deal.fields') return { status: 200, body: { result: {} } };
       const after = Number((body.filter as Record<string, string>)['>ID']);
       return {
         status: 200,
@@ -151,7 +158,11 @@ describe('расписание и выгрузка Bitrix24', () => {
     );
     expect(res).toEqual({ records: 73 });
     expect(inserted).toEqual([50, 23]);
-    expect(calls.map((c) => (c.body.filter as Record<string, string>)['>ID'])).toEqual(['0', '50']);
+    expect(
+      calls
+        .filter((c) => c.method === 'crm.deal.list')
+        .map((c) => (c.body.filter as Record<string, string>)['>ID']),
+    ).toEqual(['0', '50']);
   });
 });
 
@@ -172,5 +183,27 @@ describe('стадии сделок', () => {
       ['WON', 0],
       ['C1:NEW', 1],
     ]);
+  });
+});
+
+describe('телефон лид-формы в пользовательских полях', () => {
+  it('находит поля по подписи, а не по коду', () => {
+    const f = detectFormFields({
+      UF_CRM_1: { type: 'string', formLabel: 'ТЕЛЕФОН' },
+      UF_CRM_2: { type: 'string', listLabel: 'номер' },
+      UF_CRM_3: { type: 'string', formLabel: 'ИМЯ' },
+      UF_CRM_4: { type: 'string', formLabel: 'Бюджет' },
+      UF_CRM_5: { type: 'enumeration', formLabel: 'Телефон оператора' },
+      TITLE: { type: 'string', formLabel: 'Название' },
+    });
+    expect(f).toEqual({ phone: ['UF_CRM_1', 'UF_CRM_2'], name: ['UF_CRM_3'] });
+  });
+  it('берёт первый телефон, который похож на телефон', () => {
+    const d = mapDeal(
+      'ws',
+      { ID: '1', UF_CRM_1: 'нет', UF_CRM_2: '0555 12-34-56', UF_CRM_3: 'Айгуль' } as never,
+      { phone: ['UF_CRM_1', 'UF_CRM_2'], name: ['UF_CRM_3'] },
+    );
+    expect(d).toMatchObject({ phone: '+996555123456', clientName: 'Айгуль' });
   });
 });
