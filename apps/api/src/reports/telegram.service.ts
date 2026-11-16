@@ -35,7 +35,8 @@ export class TelegramService {
     if (!this.botUsername) {
       try {
         this.botUsername = (await this.client().getMe()).username;
-      } catch {
+      } catch (err) {
+        this.log.warn(`getMe не удался: ${err instanceof Error ? err.message : String(err)}`);
         return null;
       }
     }
