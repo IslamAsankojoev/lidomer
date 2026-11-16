@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { isDayKey } from '@lidomer/shared';
 import { HttpError } from '../common/http';
 import { SecretBox } from '../common/secret-box';
 import { DB } from '../db/db.module';
@@ -12,6 +13,9 @@ import { JobQueue, jobMessageSchema } from './queue';
 const MAX_ATTEMPTS = 5;
 /** Сколько секунд задача невидима для других вызовов, пока выполняется. */
 const VISIBILITY_SECONDS = 120;
+
+/** Период для журнала — только если это дата YYYY-MM-DD. */
+const dayParam = (v: unknown): string | null => (typeof v === 'string' && isDayKey(v) ? v : null);
 
 export interface TickReport {
   scheduled: number;
@@ -107,10 +111,8 @@ export class JobRunner {
       integrationId: row.id,
       source: row.type,
       job: msg.kind,
-      periodFrom:
-        typeof params.day === 'string' ? params.day : ((params.from as string | undefined) ?? null),
-      periodTo:
-        typeof params.day === 'string' ? params.day : ((params.to as string | undefined) ?? null),
+      periodFrom: dayParam(params.day) ?? dayParam(params.from),
+      periodTo: dayParam(params.day) ?? dayParam(params.to),
     });
     try {
       const result = await adapter.run(
