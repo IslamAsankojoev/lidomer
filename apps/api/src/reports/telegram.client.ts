@@ -45,7 +45,7 @@ export type TelegramTransport = (
 const okSchema = z.looseObject({
   ok: z.boolean(),
   description: z.string().optional(),
-  result: z.unknown(),
+  result: z.unknown().optional(),
 });
 
 /** Подпись фото в Telegram — до 1024 символов. */
