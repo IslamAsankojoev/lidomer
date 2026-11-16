@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nestjs",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm turbo run build --filter=@lidomer/api..."
+  "buildCommand": "cd ../.. && pnpm turbo run build --filter=@lidomer/api...",
+  "regions": ["dub1"]
 }
