@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RateLimiter } from '../../common/http';
-import { createB24Adapter, mapDeal, toMinor } from './b24.adapter';
+import { createB24Adapter, mapDeal, pickDealStages, toMinor } from './b24.adapter';
 import { B24Client, b24WebhookUrlSchema } from './b24.client';
 
 const noWait = async () => {};
@@ -152,5 +152,25 @@ describe('расписание и выгрузка Bitrix24', () => {
     expect(res).toEqual({ records: 73 });
     expect(inserted).toEqual([50, 23]);
     expect(calls.map((c) => (c.body.filter as Record<string, string>)['>ID'])).toEqual(['0', '50']);
+  });
+});
+
+describe('стадии сделок', () => {
+  it('берёт только DEAL_STAGE*, направление — из ENTITY_ID, без повторов', () => {
+    // Так отвечает реальный портал: фильтр по ENTITY_ID игнорируется, приходят все справочники.
+    const items = [
+      { STATUS_ID: 'NEW', ENTITY_ID: 'STATUS', CATEGORY_ID: '0' },
+      { STATUS_ID: 'NEW', ENTITY_ID: 'DEAL_STAGE', CATEGORY_ID: '0' },
+      { STATUS_ID: 'WON', ENTITY_ID: 'DEAL_STAGE', CATEGORY_ID: '0' },
+      { STATUS_ID: 'C1:NEW', ENTITY_ID: 'DEAL_STAGE_1', CATEGORY_ID: '0' },
+      { STATUS_ID: 'OTHER', ENTITY_ID: 'SOURCE', CATEGORY_ID: '0' },
+      { STATUS_ID: 'NEW', ENTITY_ID: 'DEAL_STATE', CATEGORY_ID: '0' },
+      { STATUS_ID: 'DT7_1:NEW', ENTITY_ID: 'SMART_B2E_DOC_STAGE_7', CATEGORY_ID: '0' },
+    ];
+    expect(pickDealStages(items).map((s) => [s.STATUS_ID, s.categoryId])).toEqual([
+      ['NEW', 0],
+      ['WON', 0],
+      ['C1:NEW', 1],
+    ]);
   });
 });

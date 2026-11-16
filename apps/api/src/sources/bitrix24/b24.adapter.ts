@@ -70,11 +70,25 @@ const statusSchema = z.looseObject({
 });
 
 /** Направление: DEAL_STAGE — общее (0), DEAL_STAGE_5 — направление 5. */
-function stageCategory(st: { ENTITY_ID: string; CATEGORY_ID?: unknown }): number {
-  if (st.CATEGORY_ID !== null && st.CATEGORY_ID !== undefined && st.CATEGORY_ID !== '')
-    return Number(st.CATEGORY_ID);
-  const m = /^DEAL_STAGE_(\d+)$/.exec(st.ENTITY_ID);
-  return m ? Number(m[1]) : 0;
+const DEAL_STAGE_ENTITY = /^DEAL_STAGE(?:_(\d+))?$/;
+
+/**
+ * Стадии сделок из ответа crm.status.list. Портал может вернуть все справочники CRM
+ * (источники, типы, счета…) — берём только DEAL_STAGE и DEAL_STAGE_<направление>.
+ * Направление — из ENTITY_ID: DEAL_STAGE — общее (0), DEAL_STAGE_5 — направление 5.
+ */
+export function pickDealStages<T extends { ENTITY_ID: string; STATUS_ID: string }>(
+  items: T[],
+): (T & { categoryId: number })[] {
+  const seen = new Set<string>();
+  const out: (T & { categoryId: number })[] = [];
+  for (const it of items) {
+    const m = DEAL_STAGE_ENTITY.exec(it.ENTITY_ID);
+    if (!m || seen.has(it.STATUS_ID)) continue;
+    seen.add(it.STATUS_ID);
+    out.push({ ...it, categoryId: m[1] ? Number(m[1]) : 0 });
+  }
+  return out;
 }
 
 const text = (v: unknown) => (v === null || v === undefined || v === '' ? null : String(v));
@@ -169,19 +183,17 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
 
       if (job.kind === 'b24:stages') {
         const statuses = listResponse(statusSchema).parse(
-          await api.call('crm.status.list', {
-            filter: { '%ENTITY_ID': 'DEAL_STAGE' },
-            order: { SORT: 'ASC' },
-          }),
+          await api.call('crm.status.list', { order: { SORT: 'ASC' } }),
         ).result;
-        if (statuses.length) {
+        const stages = pickDealStages(statuses);
+        if (stages.length) {
           await ctx.db
             .insert(b24Stages)
             .values(
-              statuses.map((st) => ({
+              stages.map((st) => ({
                 workspaceId: ctx.workspaceId,
                 stageId: st.STATUS_ID,
-                categoryId: stageCategory(st),
+                categoryId: st.categoryId,
                 name: st.NAME,
                 semantics: text(st.SEMANTICS ?? st.EXTRA?.SEMANTICS),
                 sort: st.SORT === null || st.SORT === undefined ? null : Number(st.SORT),
@@ -199,7 +211,7 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
               },
             });
         }
-        return { records: statuses.length };
+        return { records: stages.length };
       }
 
       if (job.kind === 'b24:deals') {
