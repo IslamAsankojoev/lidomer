@@ -5,6 +5,7 @@ import { JobRunner } from '../jobs/job-runner';
 import { JobsController } from '../jobs/jobs.controller';
 import { JobQueue } from '../jobs/queue';
 import { type AdapterRegistry, SOURCE_ADAPTERS } from '../sources/registry';
+import { createB24Adapter } from '../sources/bitrix24/b24.adapter';
 import { createWardAdapter } from '../sources/ward/ward.adapter';
 import { WorkspacesModule } from '../workspaces/workspaces.module';
 import { IntegrationsController } from './integrations.controller';
@@ -26,7 +27,10 @@ import { IntegrationsService, SECRET_BOX } from './integrations.service';
     },
     {
       provide: SOURCE_ADAPTERS,
-      useFactory: (): AdapterRegistry => ({ ward: createWardAdapter() as AdapterRegistry['ward'] }),
+      useFactory: (): AdapterRegistry => ({
+        ward: createWardAdapter() as AdapterRegistry['ward'],
+        bitrix24: createB24Adapter() as AdapterRegistry['bitrix24'],
+      }),
     },
   ],
 })
