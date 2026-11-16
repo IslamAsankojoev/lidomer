@@ -1,0 +1,40 @@
+{
+  "name": "@lidomer/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch --env-file-if-exists=../../.env.local src/main.ts",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lidomer/db": "workspace:*",
+    "@lidomer/shared": "workspace:*",
+    "@nestjs/common": "^11.2.10",
+    "@nestjs/core": "^11.2.10",
+    "@nestjs/platform-express": "^11.2.10",
+    "drizzle-orm": "^0.45.4",
+    "jose": "^6.2.17",
+    "nestjs-pino": "^5.3.1",
+    "pino": "^10.0.0",
+    "pino-http": "^11.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@lidomer/config": "workspace:*",
+    "@nestjs/testing": "^11.2.10",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.18.0",
+    "@types/supertest": "^6.0.3",
+    "eslint": "^9.39.5",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.12"
+  }
+}

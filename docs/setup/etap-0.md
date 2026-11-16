@@ -13,6 +13,7 @@
 Репозиторий `IslamAsankojoev/lidomer` есть, `gh` на этом компьютере авторизован.
 
 Дополнительно (1 минута): **Settings → Branches → Add branch ruleset** для `main`:
+
 - Require a pull request before merging
 - Require status checks to pass → после первого прогона CI выбрать `ci`
 
@@ -20,11 +21,11 @@
 
 ---
 
-## 2. Supabase — два проекта (dev и prod)  ⛔ блокирует проверку входа в Этапе 1
+## 2. Supabase — два проекта (dev и prod) ⛔ блокирует проверку входа в Этапе 1
 
 1. Зайти на https://supabase.com/dashboard → **New project**.
 2. Организация — ваша; **Name**: `lidomer-dev`; **Database Password** — сгенерировать и
-   сохранить в менеджер паролей; **Region**: **Central EU (Frankfurt) — eu-central-1**
+   сохранить в менеджер паролей; **Region**: **West EU (Ireland) — eu-west-1** (как dev)
    (см. решение о регионе ниже).
 3. Повторить для `lidomer-prod` (тот же регион).
 4. В каждом проекте: **Database → Extensions** → включить `pg_cron`, `pg_net`, `pgmq`.
@@ -47,7 +48,7 @@
 
 ---
 
-## 3. Vercel — два проекта из одного репозитория  ⛔ блокирует preview-деплой Этапа 1
+## 3. Vercel — два проекта из одного репозитория ⛔ блокирует preview-деплой Этапа 1
 
 > Тариф: см. решение ниже — для коммерческого проекта нужен **Pro**.
 
@@ -58,7 +59,7 @@
    Build/Install команды не трогать.
 3. Ещё раз Import того же репозитория → проект **api**: Project Name `lidomer-api`,
    **Root Directory** `apps/api`, Framework — NestJS (или Other, если NestJS нет в списке).
-4. В обоих проектах: **Settings → Functions → Function Region** → `Frankfurt, Germany (fra1)`;
+4. В обоих проектах: **Settings → Functions → Function Region** → `Dublin, Ireland (dub1)`;
    **Settings → Functions → Fluid Compute** — включено.
 5. **Settings → Environment Variables** — внести переменные из `.env.example`
    (для Preview — значения dev-проекта Supabase, для Production — prod).
@@ -70,7 +71,7 @@ openssl rand -base64 32
 
 ---
 
-## 4. Meta (Facebook) — приложение и доступ к рекламному аккаунту  ⛔ блокирует Этап 2
+## 4. Meta (Facebook) — приложение и доступ к рекламному аккаунту ⛔ блокирует Этап 2
 
 1. https://developers.facebook.com/apps → **Create app** → тип **Business** →
    привязать к вашему бизнес-портфолио.
@@ -86,26 +87,27 @@ openssl rand -base64 32
    Записать **Configuration ID**, **App ID**, **App Secret** (секрет — только в Vercel).
 7. Сообщить агенту: «Meta готово, Configuration ID внесён в Vercel».
 
-## 5. Ward — письмо в поддержку  (не блокирует, но чем раньше — тем лучше)
+## 5. Ward — письмо в поддержку (не блокирует, но чем раньше — тем лучше)
 
 Ключ «API для отчётов» уже есть — **не присылайте его**, внесёте через экран «Интеграции» на Этапе 2.
 
 Текст письма в поддержку Ward (можно скопировать):
 
 > Здравствуйте! Мы строим отчёт по рекламе на вашем публичном API для отчётов. Просим:
+>
 > 1. Отдавать `conversation_id` и структурный источник лида (тип: реклама / пост / Direct, id объявления или поста) в `/leads`, а не только текстовое поле `source`.
 > 2. Сохранять рекламную метку (id объявления) для диалогов из Instagram Direct, начатых с рекламы.
 > 3. Добавить вебхук о новом лиде и смене его статуса.
-> Спасибо!
+>    Спасибо!
 
-## 6. Bitrix24 — отдельный входящий вебхук  ⛔ блокирует Этап 2 (Bitrix24)
+## 6. Bitrix24 — отдельный входящий вебхук ⛔ блокирует Этап 2 (Bitrix24)
 
 1. alatoo.bitrix24.kz → **Разработчикам → Другое → Входящий вебхук**.
 2. Название: `Отчёты lidomer`; права: **CRM (crm)** — только это.
 3. Сохранить. URL вебхука — это секрет: **не присылать**, внесёте в форму кабинета на Этапе 2.
 4. Не трогать вебхук, который использует Ward.
 
-## 7. Telegram — бот и группы  ⛔ блокирует Этап 5 (но токен нужен в Vercel раньше)
+## 7. Telegram — бот и группы ⛔ блокирует Этап 5 (но токен нужен в Vercel раньше)
 
 1. В Telegram открыть **@BotFather** → `/newbot` → имя `Lidomer Reports`, username на `_bot`.
    Токен — сразу в Vercel как `TELEGRAM_BOT_TOKEN`, в чат не присылать.
@@ -117,7 +119,8 @@ openssl rand -base64 32
 ## Решения по пунктам «Изучить» этого этапа
 
 См. `docs/decisions/0001-region-and-vercel-plan.md`. Кратко:
-- **Регион:** Supabase `eu-central-1` (Франкфурт) + Vercel `fra1`.
+
+- **Регион:** Supabase `eu-west-1` (Ирландия) + Vercel `dub1`.
 - **Тариф Vercel:** Hobby запрещает коммерческое использование → нужен **Pro**.
 
 ## Готово, когда
