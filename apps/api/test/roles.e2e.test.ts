@@ -10,6 +10,17 @@ import { JWT_KEYS } from '../src/auth/jwt';
 import { ENV, loadEnv } from '../src/config/env';
 import { MembershipRepository } from '../src/workspaces/membership.repository';
 import { SupabaseAdmin } from '../src/workspaces/supabase-admin';
+import { IntegrationsRepository } from '../src/integrations/integrations.repository';
+
+const CRON_SECRET = 'c'.repeat(64);
+// В тестах подключений нет: проверяем доступ, а не синхронизацию.
+const fakeIntegrations = {
+  list: async () => [],
+  get: async () => null,
+  timezoneOf: async () => 'Asia/Bishkek',
+  listRuns: async () => [],
+  listActive: async () => [],
+};
 
 // Тестовые данные (фейковые): две компании, пользователи с разными ролями.
 const SUPABASE_URL = 'https://test-project.supabase.co';
@@ -102,12 +113,16 @@ beforeAll(async () => {
         SUPABASE_URL,
         SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key-not-real',
         WEB_ORIGIN: 'https://web.example.test',
+        ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+        CRON_SECRET: CRON_SECRET,
       }),
     )
     .overrideProvider(JWT_KEYS)
     .useValue(createLocalJWKSet({ keys: [jwk] }))
     .overrideProvider(MembershipRepository)
     .useValue(membership)
+    .overrideProvider(IntegrationsRepository)
+    .useValue(fakeIntegrations)
     .overrideProvider(SupabaseAdmin)
     .useValue({ inviteByEmail: async () => NEW_USER })
     .compile();
@@ -214,5 +229,46 @@ describe('доступ к компании и роли', () => {
       .set('X-Workspace-Id', WS_A)
       .send({ role: 'viewer' })
       .expect(409);
+  });
+});
+
+describe('интеграции и задачи', () => {
+  it('Продажи и Наблюдатель не видят интеграции, Маркетолог видит', async () => {
+    for (const role of ['sales', 'viewer'] as const) {
+      await request(app.getHttpServer())
+        .get('/integrations')
+        .set('Authorization', await as(role))
+        .set('X-Workspace-Id', WS_A)
+        .expect(403);
+    }
+    const res = await request(app.getHttpServer())
+      .get('/integrations')
+      .set('Authorization', await as('marketer'))
+      .set('X-Workspace-Id', WS_A)
+      .expect(200);
+    expect(res.body.integrations.map((i: { type: string; status: string }) => i.status)).toEqual([
+      'not_connected',
+      'not_connected',
+      'not_connected',
+    ]);
+  });
+
+  it('неверный ключ Ward отклоняется до обращения к Ward', async () => {
+    const res = await request(app.getHttpServer())
+      .put('/integrations/ward')
+      .set('Authorization', await as('marketer'))
+      .set('X-Workspace-Id', WS_A)
+      .send({ apiKey: 'не-ключ' })
+      .expect(400);
+    expect(res.body.message).toContain('wdr_');
+  });
+
+  it('/jobs/tick без секрета или с чужим — 401', async () => {
+    await request(app.getHttpServer()).post('/jobs/tick').expect(401);
+    await request(app.getHttpServer()).post('/jobs/tick').set('Authorization', 'Bearer wrong').expect(401);
+    await request(app.getHttpServer())
+      .post('/jobs/tick')
+      .set('Authorization', await as('owner'))
+      .expect(401);
   });
 });

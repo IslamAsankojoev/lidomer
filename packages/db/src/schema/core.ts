@@ -11,7 +11,8 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { ROLES } from '@lidomer/shared';
+import { createdAt, updatedAt } from './columns';
+import { INTEGRATION_STATUSES, INTEGRATION_TYPES, ROLES } from '@lidomer/shared';
 
 /*
  * Правила схемы:
@@ -23,13 +24,6 @@ import { ROLES } from '@lidomer/shared';
 
 /** Пользователи Supabase Auth. Таблицей управляет Supabase — не экспортируем, чтобы drizzle-kit её не трогал. */
 const authUsers = pgSchema('auth').table('users', { id: uuid('id').primaryKey() });
-
-const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
-const updatedAt = () =>
-  timestamp('updated_at', { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date());
 
 export const roleEnum = pgEnum('member_role', ROLES);
 
@@ -66,17 +60,8 @@ export const members = pgTable(
   ],
 ).enableRLS();
 
-export const INTEGRATION_TYPES = ['meta_ads', 'ward', 'bitrix24', 'telegram'] as const;
 export const integrationTypeEnum = pgEnum('integration_type', INTEGRATION_TYPES);
 
-export const INTEGRATION_STATUSES = [
-  'not_connected',
-  'connected',
-  'syncing',
-  'error',
-  'reauth_required',
-  'disabled',
-] as const;
 export const integrationStatusEnum = pgEnum('integration_status', INTEGRATION_STATUSES);
 
 export const integrations = pgTable(
@@ -94,12 +79,17 @@ export const integrations = pgTable(
     settings: jsonb('settings')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /** Когда какая задача синхронизации ставилась в очередь последний раз: { "ward:recent": ISO, ... }. */
+    syncState: jsonb('sync_state')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
     lastError: text('last_error'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index('integrations_workspace_idx').on(t.workspaceId, t.type)],
+  // В первой версии — одно подключение каждого типа на компанию.
+  (t) => [uniqueIndex('integrations_workspace_type_uq').on(t.workspaceId, t.type)],
 ).enableRLS();
 
 /** Журнал действий и ручных правок. Только добавление. */

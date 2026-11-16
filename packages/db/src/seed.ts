@@ -6,7 +6,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { createDb } from './client';
 import { loadRootEnv } from './env';
-import { members, workspaces } from './schema';
+import { members, workspaces } from './schema/index';
 
 loadRootEnv();
 
