@@ -9,6 +9,11 @@ import { usePeriod } from '@/lib/period';
 
 const fmt = (d: string) => format(parseISO(d), 'd MMM yyyy', { locale: ru });
 
+/** «16 нояб. 2026» или «1 нояб. 2026 — 16 нояб. 2026». */
+export function formatPeriod({ from, to }: { from: string; to: string }): string {
+  return from === to ? fmt(from) : `${fmt(from)} — ${fmt(to)}`;
+}
+
 /** Панель периода. Значение живёт в URL. */
 export function PeriodBar() {
   const { preset, range, setState } = usePeriod();
@@ -65,7 +70,7 @@ export function PeriodBar() {
         </div>
       ) : (
         <span className="text-sm text-muted-foreground" data-testid="period-range">
-          {range.from === range.to ? fmt(range.from) : `${fmt(range.from)} — ${fmt(range.to)}`}
+          {formatPeriod(range)}
         </span>
       )}
     </div>
