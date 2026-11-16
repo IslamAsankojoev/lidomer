@@ -1,12 +1,25 @@
 {
-  "extends": "@lidomer/config/tsconfig.node.json",
+  "//": "Опции заданы явно, без extends: сборщик NestJS на Vercel не читает унаследованный tsconfig (docs/decisions/0002).",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": ".",
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "sourceMap": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": false,
     "types": ["node"],
-    "lib": ["ES2023", "DOM"]
+    "outDir": "dist",
+    "rootDir": "."
   },
   "include": ["src", "test"]
 }
