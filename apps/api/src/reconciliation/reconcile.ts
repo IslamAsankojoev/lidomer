@@ -40,6 +40,9 @@ export interface DealIn {
   utmCampaign: string | null;
   utmContent: string | null;
   contactId: string | null;
+  /** Телефон и имя из пользовательских полей сделки (лид-формы без контакта). */
+  phone?: string | null;
+  clientName?: string | null;
 }
 
 export interface ContactIn {
@@ -127,7 +130,7 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
     const contact = deal?.contactId ? input.contacts.get(deal.contactId) : undefined;
     const channel = WARD_CHANNEL[w.sourceKind];
     const status = deal ? dealStatus(deal) : wardStatus(w.status);
-    const phone = normalizePhone(w.phone) ?? contact?.phone ?? null;
+    const phone = normalizePhone(w.phone) ?? contact?.phone ?? deal?.phone ?? null;
     const flags: LeadFlag[] = [];
     if (!deal) flags.push('no_deal');
     if (!phone) flags.push('no_phone');
@@ -193,7 +196,7 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
     } else {
       channel = 'other';
     }
-    const phone = contact?.phone ?? null;
+    const phone = contact?.phone ?? d.phone ?? null;
     if (!phone) flags.push('no_phone');
     const status = dealStatus(d);
     rows.push({
@@ -201,7 +204,7 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
       origin: 'b24',
       createdAt: d.createdAt,
       day: toDayKey(d.createdAt, timezone),
-      name: contact?.name ?? null,
+      name: contact?.name ?? d.clientName ?? null,
       phone,
       instagram: null,
       channel,

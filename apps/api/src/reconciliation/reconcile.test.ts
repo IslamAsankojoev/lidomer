@@ -115,6 +115,36 @@ describe('сверка', () => {
     });
   });
 
+  it('лид-форма без контакта: телефон и имя из полей сделки, повтор находится', () => {
+    const rows = reconcile(
+      input({
+        wardLeads: [
+          ward(20, {
+            phone: '+996555000020',
+            crmId: null,
+            createdAt: new Date('2026-11-01T10:00:00Z'),
+          }),
+        ],
+        deals: [
+          deal('9020', {
+            sourceId: '4',
+            utmSource: 'ig',
+            phone: '+996555000020',
+            clientName: 'Айбек',
+          }),
+        ],
+      }),
+    );
+    const b = rows.find((r) => r.id === 'b24:9020')!;
+    expect(b).toMatchObject({
+      phone: '+996555000020',
+      name: 'Айбек',
+      isRepeat: true,
+      repeatOf: 'ward:20',
+    });
+    expect(b.flags).not.toContain('no_phone');
+  });
+
   it('источник без UTM — другой канал; в настройках — реклама или исключён', () => {
     const deals = [deal('6001', { sourceId: 'CALL' }), deal('6002', { sourceId: 'UC_OESAEK' })];
     expect(reconcile(input({ deals })).map((r) => r.channel)).toEqual(['other', 'other']);

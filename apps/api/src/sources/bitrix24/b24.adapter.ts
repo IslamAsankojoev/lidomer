@@ -162,7 +162,40 @@ export function toMinor(amount: unknown, currency: string | null | undefined): n
   return Math.round(n * 10 ** currencyDigits(currency));
 }
 
-export function mapDeal(workspaceId: string, d: B24Deal) {
+/** Пользовательские поля сделки с телефоном и именем клиента (лид-формы без контакта). */
+export interface FormFields {
+  phone: string[];
+  name: string[];
+}
+export const NO_FORM_FIELDS: FormFields = { phone: [], name: [] };
+
+const fieldsSchema = z.looseObject({
+  result: z.record(
+    z.string(),
+    z.looseObject({ type: z.string(), formLabel: s, listLabel: s, title: s }),
+  ),
+});
+
+/**
+ * Находит поля UF_* с подписью «телефон / номер / phone» и «имя / name». Номера полей у каждого
+ * портала свои, поэтому — по подписям, а не по коду.
+ */
+export function detectFormFields(fields: z.infer<typeof fieldsSchema>['result']): FormFields {
+  const out: FormFields = { phone: [], name: [] };
+  for (const [code, f] of Object.entries(fields)) {
+    if (!code.startsWith('UF_') || f.type !== 'string') continue;
+    const label = `${f.formLabel ?? ''} ${f.listLabel ?? ''} ${f.title ?? ''}`.toLowerCase();
+    if (/телефон|номер|phone/.test(label)) out.phone.push(code);
+    else if (/(^|\s)(имя|name|фио)(\s|$)/.test(label)) out.name.push(code);
+  }
+  return out;
+}
+
+const firstValue = (d: Record<string, unknown>, codes: string[]) =>
+  codes.map((c) => text(d[c])).find((v) => v !== null) ?? null;
+
+export function mapDeal(workspaceId: string, d: B24Deal, form: FormFields = NO_FORM_FIELDS) {
+  const raw = d as Record<string, unknown>;
   return {
     workspaceId,
     id: String(d.ID),
@@ -181,6 +214,8 @@ export function mapDeal(workspaceId: string, d: B24Deal) {
     utmTerm: text(d.UTM_TERM),
     assignedById: text(d.ASSIGNED_BY_ID),
     contactId: text(d.CONTACT_ID),
+    phone: form.phone.map((c) => normalizePhone(text(raw[c]))).find(Boolean) ?? null,
+    clientName: firstValue(raw, form.name),
     createdAt: date(d.DATE_CREATE),
     updatedAt: date(d.DATE_MODIFY),
     closedAt: date(d.CLOSEDATE),
@@ -284,12 +319,16 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
           .parse(job.params);
         let afterId = params.afterId;
         let records = 0;
+        const form = detectFormFields(
+          fieldsSchema.parse(await api.call('crm.deal.fields', {})).result,
+        );
+        const select = [...DEAL_FIELDS, ...form.phone, ...form.name];
         for (;;) {
           const filter: Record<string, unknown> = { '>ID': afterId };
           if (params.since) filter['>=DATE_MODIFY'] = params.since;
           const page = listResponse(dealSchema).parse(
             await api.call('crm.deal.list', {
-              select: DEAL_FIELDS,
+              select,
               filter,
               order: { ID: 'ASC' },
               start: -1,
@@ -298,7 +337,7 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
           if (page.length) {
             await ctx.db
               .insert(b24Deals)
-              .values(page.map((d) => mapDeal(ctx.workspaceId, d)))
+              .values(page.map((d) => mapDeal(ctx.workspaceId, d, form)))
               .onConflictDoUpdate({
                 target: [b24Deals.workspaceId, b24Deals.id],
                 set: excludedSet(b24Deals, ['workspaceId', 'id']),

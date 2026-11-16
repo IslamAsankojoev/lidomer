@@ -300,6 +300,9 @@ export const b24Deals = pgTable(
     utmTerm: text('utm_term'),
     assignedById: text('assigned_by_id'),
     contactId: text('contact_id'),
+    /** Телефон и имя из пользовательских полей сделки (лид-формы без контакта). Персональные данные. */
+    phone: text('phone'),
+    clientName: text('client_name'),
     createdAt: timestamp('created_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
     closedAt: timestamp('closed_at', { withTimezone: true }),
