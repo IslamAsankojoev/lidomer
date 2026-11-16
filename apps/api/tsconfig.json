@@ -1,0 +1,11 @@
+{
+  "extends": "@lidomer/config/tsconfig.node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": false,
+    "types": ["node"]
+  },
+  "include": ["src", "test"]
+}
