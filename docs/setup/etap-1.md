@@ -71,7 +71,7 @@ pnpm db:seed
 | `lidomer-api` | `apps/api`     | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `WEB_ORIGIN` = адрес web, `WEB_ORIGIN_PATTERN` (для preview) |
 
 Команды сборки и установки уже заданы в `apps/*/vercel.json` — в настройках их не трогать.
-В обоих проектах: Settings → Functions → Region → **fra1**.
+В обоих проектах: Settings → Functions → Region → **dub1** (Dublin).
 
 Для preview-деплоев web на api задать
 `WEB_ORIGIN_PATTERN` = `https://lidomer-web-[a-z0-9-]+-<ваш-team-slug>\.vercel\.app`

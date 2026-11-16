@@ -25,7 +25,7 @@
 
 1. Зайти на https://supabase.com/dashboard → **New project**.
 2. Организация — ваша; **Name**: `lidomer-dev`; **Database Password** — сгенерировать и
-   сохранить в менеджер паролей; **Region**: **Central EU (Frankfurt) — eu-central-1**
+   сохранить в менеджер паролей; **Region**: **West EU (Ireland) — eu-west-1** (как dev)
    (см. решение о регионе ниже).
 3. Повторить для `lidomer-prod` (тот же регион).
 4. В каждом проекте: **Database → Extensions** → включить `pg_cron`, `pg_net`, `pgmq`.
@@ -59,7 +59,7 @@
    Build/Install команды не трогать.
 3. Ещё раз Import того же репозитория → проект **api**: Project Name `lidomer-api`,
    **Root Directory** `apps/api`, Framework — NestJS (или Other, если NestJS нет в списке).
-4. В обоих проектах: **Settings → Functions → Function Region** → `Frankfurt, Germany (fra1)`;
+4. В обоих проектах: **Settings → Functions → Function Region** → `Dublin, Ireland (dub1)`;
    **Settings → Functions → Fluid Compute** — включено.
 5. **Settings → Environment Variables** — внести переменные из `.env.example`
    (для Preview — значения dev-проекта Supabase, для Production — prod).
@@ -120,7 +120,7 @@ openssl rand -base64 32
 
 См. `docs/decisions/0001-region-and-vercel-plan.md`. Кратко:
 
-- **Регион:** Supabase `eu-central-1` (Франкфурт) + Vercel `fra1`.
+- **Регион:** Supabase `eu-west-1` (Ирландия) + Vercel `dub1`.
 - **Тариф Vercel:** Hobby запрещает коммерческое использование → нужен **Pro**.
 
 ## Готово, когда
