@@ -234,7 +234,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ runId: string }
       ) : null}
 
       {s.blocks.includes('funnel') && s.funnel ? (
-        <div style={{ display: 'flex', gap: 16, fontSize: 26, color: C.muted }}>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 26, color: C.muted }}
+        >
           <span>{`Ward: переписок ${int(s.funnel.conversations)}`}</span>
           <span>{`→ лидов ${int(s.funnel.wardLeads)}`}</span>
           <span>{`→ сделок ${int(s.funnel.withDeal)}`}</span>
