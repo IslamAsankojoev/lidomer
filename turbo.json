@@ -5,7 +5,14 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "env": ["NEXT_PUBLIC_*"]
+      "env": ["NEXT_PUBLIC_*"],
+      "passThroughEnv": [
+        "SUPABASE_*",
+        "DATABASE_URL",
+        "WEB_ORIGIN",
+        "WEB_ORIGIN_PATTERN",
+        "LOG_LEVEL"
+      ]
     },
     "dev": {
       "dependsOn": ["^build"],

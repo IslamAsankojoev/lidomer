@@ -5,7 +5,7 @@ import { exportJWK, generateKeyPair, SignJWT, createLocalJWKSet, type JWK } from
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
-import { configureApp } from '../src/app';
+import { configureApp } from '../src/create-app';
 import { JWT_KEYS } from '../src/auth/jwt';
 import { ENV, loadEnv } from '../src/config/env';
 import { MembershipRepository } from '../src/workspaces/membership.repository';
