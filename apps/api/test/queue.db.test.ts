@@ -50,7 +50,18 @@ describe.runIf(enabled)('очередь задач на базе', { timeout: 60
 
   const repo = new IntegrationsRepository(db);
   const queue = new JobQueue(db);
-  const runner = new JobRunner(db, queue, repo, { ward: fake as SourceAdapter<unknown> }, box);
+  const rebuilt: string[] = [];
+  const reconciliation = { rebuild: async (ws: string) => void rebuilt.push(ws) } as never;
+  const fx = { ensureToday: async () => {} } as never;
+  const runner = new JobRunner(
+    db,
+    queue,
+    repo,
+    { ward: fake as SourceAdapter<unknown> },
+    box,
+    reconciliation,
+    fx,
+  );
 
   beforeAll(async () => {
     const [ws] = await db
@@ -97,6 +108,8 @@ describe.runIf(enabled)('очередь задач на базе', { timeout: 60
     await runner.tick(40_000);
 
     expect(ran.sort()).toEqual(['2026-11-01', '2026-11-02']);
+    // Данные загружены — журнал компании пересобран один раз.
+    expect(rebuilt).toEqual([workspaceId]);
     const runs = await db.select().from(syncRuns).where(eq(syncRuns.integrationId, integrationId));
     expect(runs.filter((r) => r.status === 'success').map((r) => r.records)).toEqual([2, 2]);
     expect(runs.find((r) => r.status === 'error')?.error).toContain('ключ неверный');

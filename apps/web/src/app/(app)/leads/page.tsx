@@ -1,14 +1,280 @@
-import type { Metadata } from 'next';
+'use client';
+
+import {
+  DEAL_STATUS_LABELS,
+  DEAL_STATUSES,
+  LEAD_CHANNEL_LABELS,
+  LEAD_CHANNELS,
+  LEAD_FLAG_LABELS,
+  LEAD_FLAGS,
+  LEAD_METRICS,
+  leadsResponseSchema,
+} from '@lidomer/shared';
+import { useQuery } from '@tanstack/react-query';
+import { format, parseISO } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { parseAsInteger, parseAsStringLiteral, useQueryStates } from 'nuqs';
 import { PageHeader } from '@/components/page-header';
-import { EmptyState } from '@/components/state';
+import { EmptyState, ErrorState, LoadingState } from '@/components/state';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useApi } from '@/lib/api';
+import { int, money } from '@/lib/format';
+import { usePeriod } from '@/lib/period';
+import { useWorkspace } from '@/lib/workspace';
 
-export const metadata: Metadata = { title: 'Лиды' };
+const PAGE = 50;
+const METRIC_LABELS: Record<(typeof LEAD_METRICS)[number], string> = {
+  adLeads: 'Лиды с рекламы',
+  organicLeads: 'Органика',
+  directUnknownLeads: 'Direct, источник не определён',
+  otherLeads: 'Другие каналы',
+  totalLeads: 'Все новые лиды',
+  repeats: 'Повторные обращения',
+  withPhone: 'С телефоном',
+  sales: 'Продажи',
+};
 
-export default function Page() {
+/** Ward кладёт в имя Instagram — не повторяем его второй строкой. */
+const sameAsName = (l: { name: string | null; instagram: string | null }) =>
+  !!l.name && l.name.replace(/^@/, '').toLowerCase() === l.instagram;
+
+/** Объявление без названия (Meta не подключена): короткий id вместо 18 цифр. */
+const adLabel = (key: string | null) =>
+  !key ? '—' : /^\d{10,}$/.test(key) ? `Объявление #…${key.slice(-6)}` : key;
+
+const filters = {
+  metric: parseAsStringLiteral(LEAD_METRICS),
+  channel: parseAsStringLiteral(LEAD_CHANNELS),
+  status: parseAsStringLiteral(DEAL_STATUSES),
+  flag: parseAsStringLiteral(LEAD_FLAGS),
+  page: parseAsInteger.withDefault(0),
+};
+
+function FilterSelect<T extends string>(props: {
+  label: string;
+  value: T | null;
+  options: readonly T[];
+  labels: Record<T, string>;
+  onChange: (v: T | null) => void;
+}) {
+  return (
+    <select
+      aria-label={props.label}
+      value={props.value ?? ''}
+      onChange={(e) => props.onChange((e.target.value || null) as T | null)}
+      className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+    >
+      <option value="">{props.label}: все</option>
+      {props.options.map((o) => (
+        <option key={o} value={o}>
+          {props.labels[o]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export default function LeadsPage() {
+  const api = useApi();
+  const { workspace } = useWorkspace();
+  const { range } = usePeriod();
+  const [f, setF] = useQueryStates(filters);
+
+  const params = new URLSearchParams({
+    from: range.from,
+    to: range.to,
+    limit: String(PAGE),
+    offset: String(f.page * PAGE),
+  });
+  if (f.metric) params.set('metric', f.metric);
+  if (f.channel) params.set('channel', f.channel);
+  if (f.status) params.set('status', f.status);
+  if (f.flag) params.set('flag', f.flag);
+
+  const q = useQuery({
+    queryKey: ['leads', workspace.id, params.toString()],
+    queryFn: () =>
+      api(leadsResponseSchema, `/leads?${params.toString()}`, { workspaceId: workspace.id }),
+    placeholderData: (prev) => prev,
+  });
+  const set = (patch: Partial<typeof f>) => void setF({ ...patch, page: 0 });
+  const pages = q.data ? Math.max(1, Math.ceil(q.data.total / PAGE)) : 1;
+
   return (
     <>
-      <PageHeader title="Лиды" description="Единый журнал лидов: объявление → Ward → сделка" />
-      <EmptyState description="Журнал лидов появится после синхронизации Ward и Bitrix24 и сверки (этапы 2–3)." />
+      <PageHeader
+        title="Лиды"
+        description={
+          f.metric
+            ? `Из чего сложилось: «${METRIC_LABELS[f.metric]}» — ${q.data ? int(q.data.total) : '…'}`
+            : 'Единый журнал: лид Ward со своей сделкой или сделка Bitrix24 без Ward'
+        }
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterSelect
+          label="Цифра"
+          value={f.metric}
+          options={LEAD_METRICS}
+          labels={METRIC_LABELS}
+          onChange={(v) => set({ metric: v })}
+        />
+        <FilterSelect
+          label="Канал"
+          value={f.channel}
+          options={LEAD_CHANNELS}
+          labels={LEAD_CHANNEL_LABELS}
+          onChange={(v) => set({ channel: v })}
+        />
+        <FilterSelect
+          label="Статус"
+          value={f.status}
+          options={DEAL_STATUSES}
+          labels={DEAL_STATUS_LABELS}
+          onChange={(v) => set({ status: v })}
+        />
+        <FilterSelect
+          label="Проблема"
+          value={f.flag}
+          options={LEAD_FLAGS}
+          labels={LEAD_FLAG_LABELS}
+          onChange={(v) => set({ flag: v })}
+        />
+        {(f.metric || f.channel || f.status || f.flag) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => set({ metric: null, channel: null, status: null, flag: null })}
+          >
+            Сбросить
+          </Button>
+        )}
+      </div>
+
+      {q.isPending ? (
+        <LoadingState rows={4} />
+      ) : q.isError ? (
+        <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
+      ) : !q.data.items.length ? (
+        <EmptyState
+          title="Лидов нет"
+          description="За выбранный период с такими фильтрами лидов нет."
+        />
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Когда</TableHead>
+                  <TableHead>Клиент</TableHead>
+                  <TableHead>Канал</TableHead>
+                  <TableHead>Объявление</TableHead>
+                  <TableHead>Сделка</TableHead>
+                  <TableHead>Проблемы</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {q.data.items.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {format(parseISO(l.createdAt), 'd MMM, HH:mm', { locale: ru })}
+                    </TableCell>
+                    <TableCell className="max-w-48">
+                      <div className="truncate text-sm">{l.name ?? '—'}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {[l.phone, l.instagram && !sameAsName(l) && `@${l.instagram}`]
+                          .filter(Boolean)
+                          .join(' · ') || 'нет контактов'}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {LEAD_CHANNEL_LABELS[l.channel]}
+                      {l.isRepeat && (
+                        <Badge variant="outline" className="ml-1">
+                          повтор
+                        </Badge>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {l.origin === 'ward' ? 'Ward' : 'Bitrix24'}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-64 text-sm">
+                      <div className="truncate">
+                        {l.adName ?? (l.channel === 'ad' ? adLabel(l.adKey) : '—')}
+                      </div>
+                      {l.campaignName && (
+                        <div className="truncate text-xs text-muted-foreground">
+                          {l.campaignName} › {l.adsetName}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {l.dealId ? (
+                        <>
+                          <div className="whitespace-nowrap">
+                            №{l.dealId} · {DEAL_STATUS_LABELS[l.status]}
+                          </div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {l.stageName}
+                            {l.amountMinor !== null && ` · ${money(l.amountMinor, l.currency)}`}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">нет сделки</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {l.flags.map((fl) => (
+                          <Badge
+                            key={fl}
+                            variant={fl === 'no_deal' ? 'destructive' : 'secondary'}
+                            className="text-[11px]"
+                          >
+                            {LEAD_FLAG_LABELS[fl]}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              Всего {int(q.data.total)} · страница {f.page + 1} из {pages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={f.page === 0}
+                onClick={() => void setF({ page: f.page - 1 })}
+              >
+                Назад
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={f.page + 1 >= pages}
+                onClick={() => void setF({ page: f.page + 1 })}
+              >
+                Дальше
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

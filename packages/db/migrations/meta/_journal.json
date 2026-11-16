@@ -43,6 +43,13 @@
       "when": 1794854709041,
       "tag": "0005_stage_category_name",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794856490848,
+      "tag": "0006_reconciliation",
+      "breakpoints": true
     }
   ]
 }

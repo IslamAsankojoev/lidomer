@@ -7,6 +7,8 @@ import type { Db } from '@lidomer/db';
 import { describeError, SECRET_BOX } from '../integrations/integrations.service';
 import { IntegrationsRepository } from '../integrations/integrations.repository';
 import { type AdapterRegistry, SOURCE_ADAPTERS } from '../sources/registry';
+import { FxService } from '../reconciliation/fx.service';
+import { ReconciliationService } from '../reconciliation/reconciliation.service';
 import { JobQueue, jobMessageSchema } from './queue';
 
 /** Сколько раз повторять задачу, прежде чем убрать её в архив. */
@@ -21,6 +23,8 @@ export interface TickReport {
   scheduled: number;
   processed: number;
   failed: number;
+  /** Компаний, у которых пересобран журнал лидов и метрики. */
+  rebuilt: number;
 }
 
 /**
@@ -37,18 +41,40 @@ export class JobRunner {
     @Inject(IntegrationsRepository) private readonly repo: IntegrationsRepository,
     @Inject(SOURCE_ADAPTERS) private readonly adapters: AdapterRegistry,
     @Inject(SECRET_BOX) private readonly box: SecretBox,
+    @Inject(ReconciliationService) private readonly reconciliation: ReconciliationService,
+    @Inject(FxService) private readonly fx: FxService,
   ) {}
 
   async tick(budgetMs: number, now = new Date()): Promise<TickReport> {
     const deadline = Date.now() + budgetMs;
-    const report: TickReport = { scheduled: await this.schedule(now), processed: 0, failed: 0 };
-    // Оставляем запас: задача должна успеть закончиться до лимита функции.
-    while (Date.now() < deadline - 15_000) {
+    const report: TickReport = {
+      scheduled: await this.schedule(now),
+      processed: 0,
+      failed: 0,
+      rebuilt: 0,
+    };
+    await this.fx.ensureToday();
+    const touched = new Set<string>();
+    // Оставляем запас: задача и пересборка должны успеть до лимита функции.
+    while (Date.now() < deadline - 25_000) {
       const job = await this.queue.readOne(VISIBILITY_SECONDS);
       if (!job) break;
-      const ok = await this.process(job.msgId, job.readCount, job.message, deadline);
-      if (ok) report.processed++;
-      else report.failed++;
+      const ws = await this.process(job.msgId, job.readCount, job.message, deadline);
+      if (ws) {
+        report.processed++;
+        if (ws !== true) touched.add(ws);
+      } else report.failed++;
+    }
+    // Данные изменились — пересобираем журнал лидов и метрики этих компаний.
+    for (const ws of touched) {
+      try {
+        await this.reconciliation.rebuild(ws);
+        report.rebuilt++;
+      } catch (err) {
+        this.log.error(
+          `Сверка ${ws} не удалась: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
     return report;
   }
@@ -79,12 +105,13 @@ export class JobRunner {
     return count;
   }
 
+  /** true — обработано без изменения данных, id компании — данные загружены, false — ошибка. */
   private async process(
     msgId: number,
     readCount: number,
     raw: unknown,
     deadline: number,
-  ): Promise<boolean> {
+  ): Promise<string | boolean> {
     const parsed = jobMessageSchema.safeParse(raw);
     if (!parsed.success) {
       this.log.error(`Задача ${msgId} в неверном формате — в архив`);
@@ -144,7 +171,7 @@ export class JobRunner {
       }
       await this.queue.delete(msgId);
       await this.repo.markSynced(row.id);
-      return true;
+      return row.workspaceId;
     } catch (err) {
       const message = describeError(err);
       await this.repo.finishRun(runId, { error: message });

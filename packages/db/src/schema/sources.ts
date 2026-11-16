@@ -299,6 +299,7 @@ export const b24Deals = pgTable(
     utmContent: text('utm_content'),
     utmTerm: text('utm_term'),
     assignedById: text('assigned_by_id'),
+    contactId: text('contact_id'),
     createdAt: timestamp('created_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
     closedAt: timestamp('closed_at', { withTimezone: true }),
@@ -308,6 +309,20 @@ export const b24Deals = pgTable(
     primaryKey({ columns: [t.workspaceId, t.id] }),
     index('b24_deals_updated_idx').on(t.workspaceId, t.updatedAt),
   ],
+).enableRLS();
+
+/** Контакты сделок — только имя и телефон для сверки людей. Персональные данные: не логировать. */
+export const b24Contacts = pgTable(
+  'b24_contacts',
+  {
+    workspaceId: workspaceId(),
+    id: text('id').notNull(),
+    name: text('name'),
+    /** Первый телефон контакта, нормализованный до +996…; null — телефона нет. */
+    phone: text('phone'),
+    syncedAt: syncedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.id] })],
 ).enableRLS();
 
 // ---------- Задачи ----------

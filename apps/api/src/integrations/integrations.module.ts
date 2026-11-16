@@ -4,6 +4,7 @@ import { ENV, type Env } from '../config/env';
 import { JobRunner } from '../jobs/job-runner';
 import { JobsController } from '../jobs/jobs.controller';
 import { JobQueue } from '../jobs/queue';
+import { ReconciliationModule } from '../reconciliation/reconciliation.module';
 import { type AdapterRegistry, SOURCE_ADAPTERS } from '../sources/registry';
 import { Storage } from '../common/storage';
 import { createB24Adapter } from '../sources/bitrix24/b24.adapter';
@@ -16,7 +17,7 @@ import { IntegrationsRepository } from './integrations.repository';
 import { IntegrationsService, SECRET_BOX } from './integrations.service';
 
 @Module({
-  imports: [WorkspacesModule],
+  imports: [WorkspacesModule, ReconciliationModule],
   controllers: [B24StagesController, IntegrationsController, JobsController],
   providers: [
     IntegrationsRepository,
