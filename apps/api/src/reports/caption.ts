@@ -8,6 +8,12 @@ import {
 import { CAPTION_LIMIT } from './telegram.client';
 
 const int = (n: number) => new Intl.NumberFormat('ru-RU').format(n);
+
+/** «1 лид», «3 лида», «5 лидов», «21 лид». */
+export function leadsWord(n: number): string {
+  const rule = new Intl.PluralRules('ru-RU').select(n);
+  return `${int(n)} ${rule === 'one' ? 'лид' : rule === 'few' ? 'лида' : 'лидов'}`;
+}
 const dayFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 
 /** «16 ноября» или «9 — 15 ноября». */
@@ -62,7 +68,7 @@ export function buildCaption(s: ReportSnapshot): { caption: string; rest: string
     lines.push('', 'Лучшие креативы:');
     s.creatives
       .slice(0, 3)
-      .forEach((cr, i) => lines.push(`${i + 1}. ${cr.title} — ${int(cr.leads)} лидов`));
+      .forEach((cr, i) => lines.push(`${i + 1}. ${cr.title} — ${leadsWord(cr.leads)}`));
   }
   lines.push('');
   if (s.dataNote) lines.push(`⚠️ ${s.dataNote}`);
