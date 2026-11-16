@@ -13,13 +13,13 @@ export class SupabaseAdmin {
     const webOrigin = this.env.WEB_ORIGIN.split(',')[0]!.trim().replace(/\/$/, '');
     const url = new URL('/auth/v1/invite', this.env.SUPABASE_URL);
     url.searchParams.set('redirect_to', `${webOrigin}/auth/confirm`);
+    const key = this.env.SUPABASE_SERVICE_ROLE_KEY;
+    const headers: Record<string, string> = { apikey: key, 'Content-Type': 'application/json' };
+    // Новые секретные ключи (sb_secret_…) передаются только в apikey; старый service_role — JWT, его и в Authorization.
+    if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`;
     const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        apikey: this.env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${this.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ email }),
     });
     if (!res.ok) {
