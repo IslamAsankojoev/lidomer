@@ -30,7 +30,11 @@ export function dayStartUtc(day: DayKey, timeZone: string): Date {
  * Полуоткрытый интервал UTC [start, end) для дней `from`..`to` включительно
  * в поясе `timeZone`.
  */
-export function dayRangeUtc(from: DayKey, to: DayKey, timeZone: string): { start: Date; end: Date } {
+export function dayRangeUtc(
+  from: DayKey,
+  to: DayKey,
+  timeZone: string,
+): { start: Date; end: Date } {
   const start = dayStartUtc(from, timeZone);
   const end = dayStartUtc(shiftDay(to, 1), timeZone);
   return { start, end };

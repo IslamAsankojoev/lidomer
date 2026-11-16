@@ -42,7 +42,10 @@ async function main(): Promise<void> {
     await db
       .insert(members)
       .values({ workspaceId: ws!.id, userId: user.id, role: 'owner' })
-      .onConflictDoUpdate({ target: [members.workspaceId, members.userId], set: { role: 'owner' } });
+      .onConflictDoUpdate({
+        target: [members.workspaceId, members.userId],
+        set: { role: 'owner' },
+      });
     console.warn(`${email} — владелец компании «${name}»`);
   } finally {
     await client.end();

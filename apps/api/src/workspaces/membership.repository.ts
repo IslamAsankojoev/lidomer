@@ -37,7 +37,12 @@ export class MembershipRepository {
 
   async listMembers(workspaceId: string): Promise<Member[]> {
     const rows = await this.db
-      .select({ userId: members.userId, email: emailOf, role: members.role, createdAt: members.createdAt })
+      .select({
+        userId: members.userId,
+        email: emailOf,
+        role: members.role,
+        createdAt: members.createdAt,
+      })
       .from(members)
       .where(eq(members.workspaceId, workspaceId))
       .orderBy(members.createdAt);

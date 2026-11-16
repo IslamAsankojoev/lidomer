@@ -29,7 +29,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
 }
 
 /** Разрешён ли Origin для CORS. */
-export function isAllowedOrigin(origin: string, env: Pick<Env, 'WEB_ORIGIN' | 'WEB_ORIGIN_PATTERN'>): boolean {
+export function isAllowedOrigin(
+  origin: string,
+  env: Pick<Env, 'WEB_ORIGIN' | 'WEB_ORIGIN_PATTERN'>,
+): boolean {
   const exact = env.WEB_ORIGIN.split(',').map((s) => s.trim().replace(/\/$/, ''));
   if (exact.includes(origin)) return true;
   return env.WEB_ORIGIN_PATTERN ? new RegExp(`^${env.WEB_ORIGIN_PATTERN}$`).test(origin) : false;

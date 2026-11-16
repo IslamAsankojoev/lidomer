@@ -49,7 +49,12 @@ class FakeMembership {
   async listMembers(ws: string) {
     return [...this.roles.entries()]
       .filter(([k]) => k.startsWith(ws))
-      .map(([k, role]) => ({ userId: k.split(':')[1]!, email: null, role, createdAt: new Date(0).toISOString() }));
+      .map(([k, role]) => ({
+        userId: k.split(':')[1]!,
+        email: null,
+        role,
+        createdAt: new Date(0).toISOString(),
+      }));
   }
   async findUserIdByEmail() {
     return null;
@@ -127,19 +132,31 @@ describe('вход', () => {
   });
   it('чужой издатель и просроченный токен — 401', async () => {
     const foreign = await sign(users.owner, { issuer: 'https://evil.example/auth/v1' });
-    await request(app.getHttpServer()).get('/me').set('Authorization', `Bearer ${foreign}`).expect(401);
+    await request(app.getHttpServer())
+      .get('/me')
+      .set('Authorization', `Bearer ${foreign}`)
+      .expect(401);
     const expired = await sign(users.owner, { expired: true });
-    await request(app.getHttpServer()).get('/me').set('Authorization', `Bearer ${expired}`).expect(401);
+    await request(app.getHttpServer())
+      .get('/me')
+      .set('Authorization', `Bearer ${expired}`)
+      .expect(401);
   });
   it('/me возвращает только свои компании', async () => {
-    const res = await request(app.getHttpServer()).get('/me').set('Authorization', await as('viewer')).expect(200);
+    const res = await request(app.getHttpServer())
+      .get('/me')
+      .set('Authorization', await as('viewer'))
+      .expect(200);
     expect(res.body.workspaces).toEqual([expect.objectContaining({ id: WS_A, role: 'viewer' })]);
   });
 });
 
 describe('доступ к компании и роли', () => {
   it('без X-Workspace-Id — 400', async () => {
-    await request(app.getHttpServer()).get('/members').set('Authorization', await as('owner')).expect(400);
+    await request(app.getHttpServer())
+      .get('/members')
+      .set('Authorization', await as('owner'))
+      .expect(400);
   });
   it('участник другой компании не видит чужую — 403', async () => {
     await request(app.getHttpServer())
@@ -148,19 +165,22 @@ describe('доступ к компании и роли', () => {
       .set('X-Workspace-Id', WS_A)
       .expect(403);
   });
-  it.each(['marketer', 'sales', 'viewer'] as const)('%s не управляет командой — 403', async (role) => {
-    await request(app.getHttpServer())
-      .get('/members')
-      .set('Authorization', await as(role))
-      .set('X-Workspace-Id', WS_A)
-      .expect(403);
-    await request(app.getHttpServer())
-      .post('/members/invite')
-      .set('Authorization', await as(role))
-      .set('X-Workspace-Id', WS_A)
-      .send({ email: 'new@example.test', role: 'viewer' })
-      .expect(403);
-  });
+  it.each(['marketer', 'sales', 'viewer'] as const)(
+    '%s не управляет командой — 403',
+    async (role) => {
+      await request(app.getHttpServer())
+        .get('/members')
+        .set('Authorization', await as(role))
+        .set('X-Workspace-Id', WS_A)
+        .expect(403);
+      await request(app.getHttpServer())
+        .post('/members/invite')
+        .set('Authorization', await as(role))
+        .set('X-Workspace-Id', WS_A)
+        .send({ email: 'new@example.test', role: 'viewer' })
+        .expect(403);
+    },
+  );
   it('владелец видит команду своей компании', async () => {
     const res = await request(app.getHttpServer())
       .get('/members')

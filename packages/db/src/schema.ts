@@ -39,7 +39,9 @@ export const workspaces = pgTable('workspaces', {
   logoPath: text('logo_path'),
   timezone: text('timezone').notNull().default('Asia/Bishkek'),
   displayCurrency: text('display_currency').notNull().default('USD'),
-  settings: jsonb('settings').notNull().default(sql`'{}'::jsonb`),
+  settings: jsonb('settings')
+    .notNull()
+    .default(sql`'{}'::jsonb`),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }).enableRLS();
@@ -89,7 +91,9 @@ export const integrations = pgTable(
     status: integrationStatusEnum('status').notNull().default('not_connected'),
     /** Секреты, зашифрованные AES-256-GCM (base64: iv.tag.ciphertext). Никогда не отдаются наружу. */
     secretsEncrypted: text('secrets_encrypted'),
-    settings: jsonb('settings').notNull().default(sql`'{}'::jsonb`),
+    settings: jsonb('settings')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
     lastError: text('last_error'),
     createdAt: createdAt(),

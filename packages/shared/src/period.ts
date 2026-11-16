@@ -4,7 +4,15 @@ import { z } from 'zod';
 import { type DayKey, isDayKey, shiftDay, today } from './time';
 
 /** Готовые периоды панели «Сегодня · Неделя · Месяц» и произвольный. */
-export const PERIOD_PRESETS = ['today', 'yesterday', 'week', 'month', 'last7', 'last30', 'custom'] as const;
+export const PERIOD_PRESETS = [
+  'today',
+  'yesterday',
+  'week',
+  'month',
+  'last7',
+  'last30',
+  'custom',
+] as const;
 export const periodPresetSchema = z.enum(PERIOD_PRESETS);
 export type PeriodPreset = z.infer<typeof periodPresetSchema>;
 

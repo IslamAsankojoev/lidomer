@@ -27,10 +27,10 @@ export class WorkspaceGuard implements CanActivate {
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const permission = this.reflector.getAllAndOverride<Permission | undefined>(REQUIRED_PERMISSION, [
-      ctx.getHandler(),
-      ctx.getClass(),
-    ]);
+    const permission = this.reflector.getAllAndOverride<Permission | undefined>(
+      REQUIRED_PERMISSION,
+      [ctx.getHandler(), ctx.getClass()],
+    );
     if (!permission) return true;
 
     const req = ctx.switchToHttp().getRequest<AppRequest>();
