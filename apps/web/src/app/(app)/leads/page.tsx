@@ -43,6 +43,14 @@ const METRIC_LABELS: Record<(typeof LEAD_METRICS)[number], string> = {
   sales: 'Продажи',
 };
 
+/** Ward кладёт в имя Instagram — не повторяем его второй строкой. */
+const sameAsName = (l: { name: string | null; instagram: string | null }) =>
+  !!l.name && l.name.replace(/^@/, '').toLowerCase() === l.instagram;
+
+/** Объявление без названия (Meta не подключена): короткий id вместо 18 цифр. */
+const adLabel = (key: string | null) =>
+  !key ? '—' : /^\d{10,}$/.test(key) ? `Объявление #…${key.slice(-6)}` : key;
+
 const filters = {
   metric: parseAsStringLiteral(LEAD_METRICS),
   channel: parseAsStringLiteral(LEAD_CHANNELS),
@@ -183,8 +191,9 @@ export default function LeadsPage() {
                     <TableCell className="max-w-48">
                       <div className="truncate text-sm">{l.name ?? '—'}</div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {[l.phone, l.instagram && `@${l.instagram}`].filter(Boolean).join(' · ') ||
-                          'нет контактов'}
+                        {[l.phone, l.instagram && !sameAsName(l) && `@${l.instagram}`]
+                          .filter(Boolean)
+                          .join(' · ') || 'нет контактов'}
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">
@@ -200,7 +209,7 @@ export default function LeadsPage() {
                     </TableCell>
                     <TableCell className="max-w-64 text-sm">
                       <div className="truncate">
-                        {l.adName ?? (l.channel === 'ad' ? l.adKey : '—')}
+                        {l.adName ?? (l.channel === 'ad' ? adLabel(l.adKey) : '—')}
                       </div>
                       {l.campaignName && (
                         <div className="truncate text-xs text-muted-foreground">
