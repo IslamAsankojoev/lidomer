@@ -1,6 +1,6 @@
 import type { ReportSnapshot } from '@lidomer/shared';
 import { describe, expect, it } from 'vitest';
-import { buildCaption, periodLabel } from './caption';
+import { buildCaption, leadsWord, periodLabel } from './caption';
 
 const snap = (p: Partial<ReportSnapshot> = {}): ReportSnapshot => ({
   workspaceName: 'lidforce',
@@ -62,6 +62,17 @@ describe('подпись отчёта', () => {
     const { caption, rest } = buildCaption(snap({ creatives: many }));
     expect(caption.length).toBeLessThanOrEqual(1024);
     expect(rest).not.toBeNull();
+  });
+  it('склонение «лид»', () => {
+    expect([1, 3, 5, 11, 21, 33, 1000].map(leadsWord)).toEqual([
+      '1 лид',
+      '3 лида',
+      '5 лидов',
+      '11 лидов',
+      '21 лид',
+      '33 лида',
+      '1\u00a0000 лидов',
+    ]);
   });
   it('период', () => {
     expect(periodLabel('2026-11-16', '2026-11-16')).toBe('16 ноября');
