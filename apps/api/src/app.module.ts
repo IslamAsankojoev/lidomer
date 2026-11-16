@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from './config/config.module';
 import { DbModule } from './db/db.module';
 import { HealthController } from './health/health.controller';
+import { IntegrationsModule } from './integrations/integrations.module';
 import { WorkspaceGuard } from './workspaces/workspace.guard';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 
@@ -23,6 +24,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     DbModule,
     AuthModule,
     WorkspacesModule,
+    IntegrationsModule,
   ],
   controllers: [HealthController],
   providers: [

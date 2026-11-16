@@ -13,6 +13,14 @@ export const envSchema = z.object({
   WEB_ORIGIN: z.string().min(1),
   /** Необязательное регулярное выражение для preview-доменов web на Vercel. */
   WEB_ORIGIN_PATTERN: z.string().optional(),
+  /** 32 байта в base64 — ключ AES-256-GCM для секретов интеграций. */
+  ENCRYPTION_KEY: z
+    .string()
+    .refine((v) => Buffer.from(v, 'base64').length === 32, 'Нужно 32 байта в base64'),
+  /** Секрет вызова POST /jobs/tick из Supabase Cron. */
+  CRON_SECRET: z.string().min(32),
+  META_APP_ID: z.string().optional(),
+  META_APP_SECRET: z.string().optional(),
   LOG_LEVEL: z.enum(['silent', 'fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 export type Env = z.infer<typeof envSchema>;

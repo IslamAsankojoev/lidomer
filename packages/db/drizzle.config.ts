@@ -5,7 +5,7 @@ loadRootEnv();
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/schema.ts',
+  schema: './src/schema/index.ts',
   out: './migrations',
   // Схему auth и прочие служебные схемы Supabase не трогаем.
   schemaFilter: ['public'],
