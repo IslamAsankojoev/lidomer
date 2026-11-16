@@ -53,6 +53,9 @@ describe.runIf(enabled)('очередь задач на базе', { timeout: 60
   const rebuilt: string[] = [];
   const reconciliation = { rebuild: async (ws: string) => void rebuilt.push(ws) } as never;
   const fx = { ensureToday: async () => {} } as never;
+  const reports = { schedule: async () => [] } as never;
+  const alerts: unknown[] = [];
+  const telegram = { integrationAlert: async (...a: unknown[]) => void alerts.push(a) } as never;
   const runner = new JobRunner(
     db,
     queue,
@@ -61,6 +64,8 @@ describe.runIf(enabled)('очередь задач на базе', { timeout: 60
     box,
     reconciliation,
     fx,
+    reports,
+    telegram,
   );
 
   beforeAll(async () => {
@@ -120,6 +125,8 @@ describe.runIf(enabled)('очередь задач на базе', { timeout: 60
     expect(raw).toHaveLength(2);
     const [row] = await db.select().from(integrations).where(eq(integrations.id, integrationId));
     expect(row!.status).toBe('reauth_required');
+    // Переход в «Нужно переподключить» — один алерт.
+    expect(alerts).toHaveLength(1);
     // Ошибка доступа не повторяется — задача в архиве, в очереди пусто.
     expect(await repo.pendingJobs(integrationId)).toBe(0);
   });

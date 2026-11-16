@@ -8,7 +8,8 @@ const QUEUE = 'sync';
 
 export const jobMessageSchema = z.object({
   workspaceId: z.uuid(),
-  integrationId: z.uuid(),
+  /** Нет у задач отчётов. */
+  integrationId: z.uuid().optional(),
   kind: z.string(),
   params: z.record(z.string(), z.unknown()),
 });

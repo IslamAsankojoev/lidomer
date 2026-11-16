@@ -7,6 +7,8 @@ const rootEnv = resolve(process.cwd(), '../../.env.local');
 if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 const nextConfig: NextConfig = {
+  // Шрифты картинки отчёта читаются файлом — включаем их в сборку функции.
+  outputFileTracingIncludes: { '/api/og/report/[runId]': ['./assets/fonts/**'] },
   // Кабинет целиком за входом и берёт данные из api на клиенте — статической оболочки нет,
   // поэтому Cache Components не включаем (см. docs/decisions/0003-web-architecture.md).
   turbopack: {

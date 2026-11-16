@@ -10,6 +10,6 @@ import { ReconciliationService } from './reconciliation.service';
   imports: [WorkspacesModule],
   controllers: [MetricsController],
   providers: [ReconciliationService, FxService, MetricsRepository, InsightsRepository],
-  exports: [ReconciliationService, FxService],
+  exports: [ReconciliationService, FxService, MetricsRepository, InsightsRepository],
 })
 export class ReconciliationModule {}
