@@ -108,7 +108,8 @@ export class TelegramClient {
       url,
       secret_token: secret,
       allowed_updates: ['message', 'my_chat_member'],
-      drop_pending_updates: true,
+      // Не сбрасываем накопленное: повторное подключение не должно терять /connect из групп.
+      drop_pending_updates: false,
     });
   }
 
