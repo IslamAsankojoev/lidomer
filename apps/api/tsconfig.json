@@ -5,7 +5,8 @@
     "rootDir": ".",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": false,
-    "types": ["node"]
+    "types": ["node"],
+    "lib": ["ES2023", "DOM"]
   },
   "include": ["src", "test"]
 }
