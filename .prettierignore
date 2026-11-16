@@ -1,3 +1,5 @@
 pnpm-lock.yaml
 docs/tz.md
 packages/db/migrations/meta
+**/next-env.d.ts
+**/.vercel
