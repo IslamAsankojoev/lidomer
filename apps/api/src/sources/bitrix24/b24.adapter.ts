@@ -1,5 +1,5 @@
 import { b24Deals, b24Stages } from '@lidomer/db';
-import { currencyDigits } from '@lidomer/shared';
+import { currencyDigits, normalizeStageSemantics } from '@lidomer/shared';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { excludedSet } from '../../common/upsert';
@@ -89,6 +89,22 @@ export function pickDealStages<T extends { ENTITY_ID: string; STATUS_ID: string 
     out.push({ ...it, categoryId: m[1] ? Number(m[1]) : 0 });
   }
   return out;
+}
+
+const categoryListSchema = z.looseObject({
+  result: z.looseObject({
+    categories: z.array(z.looseObject({ id: z.union([z.number(), z.string()]), name: z.string() })),
+  }),
+});
+
+/** Названия направлений сделок. Не получилось — не беда: экран покажет «Направление N». */
+async function loadCategoryNames(api: B24Client): Promise<Map<number, string>> {
+  try {
+    const res = categoryListSchema.parse(await api.call('crm.category.list', { entityTypeId: 2 }));
+    return new Map(res.result.categories.map((c) => [Number(c.id), c.name]));
+  } catch {
+    return new Map();
+  }
 }
 
 const text = (v: unknown) => (v === null || v === undefined || v === '' ? null : String(v));
@@ -186,6 +202,7 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
           await api.call('crm.status.list', { order: { SORT: 'ASC' } }),
         ).result;
         const stages = pickDealStages(statuses);
+        const categoryNames = await loadCategoryNames(api);
         if (stages.length) {
           await ctx.db
             .insert(b24Stages)
@@ -194,8 +211,9 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
                 workspaceId: ctx.workspaceId,
                 stageId: st.STATUS_ID,
                 categoryId: st.categoryId,
+                categoryName: categoryNames.get(st.categoryId) ?? null,
                 name: st.NAME,
-                semantics: text(st.SEMANTICS ?? st.EXTRA?.SEMANTICS),
+                semantics: normalizeStageSemantics(st.EXTRA?.SEMANTICS, st.SEMANTICS),
                 sort: st.SORT === null || st.SORT === undefined ? null : Number(st.SORT),
               })),
             )
@@ -204,6 +222,7 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
               target: [b24Stages.workspaceId, b24Stages.stageId],
               set: {
                 categoryId: sql`excluded.category_id`,
+                categoryName: sql`excluded.category_name`,
                 name: sql`excluded.name`,
                 semantics: sql`excluded.semantics`,
                 sort: sql`excluded.sort`,

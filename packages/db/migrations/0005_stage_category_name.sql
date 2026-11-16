@@ -1,0 +1,1 @@
+ALTER TABLE "b24_stages" ADD COLUMN "category_name" text;

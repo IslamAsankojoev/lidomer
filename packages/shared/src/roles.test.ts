@@ -19,3 +19,18 @@ describe('can', () => {
     expect(can('sales', 'integrations:read')).toBe(false);
   });
 });
+
+import { defaultDealStatus, normalizeStageSemantics } from './integrations';
+
+describe('стадии Bitrix24', () => {
+  it('семантика в любом виде → единый вид', () => {
+    expect(normalizeStageSemantics(null, 'success')).toBe('success');
+    expect(normalizeStageSemantics('F', 'failure')).toBe('failure');
+    expect(normalizeStageSemantics(null, undefined)).toBe('process');
+  });
+  it('статус по умолчанию', () => {
+    expect(defaultDealStatus('S')).toBe('won');
+    expect(defaultDealStatus('failure')).toBe('lost');
+    expect(defaultDealStatus('process')).toBe('in_work');
+  });
+});

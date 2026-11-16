@@ -41,3 +41,28 @@ export type SyncRunStatus = z.infer<typeof syncRunStatusSchema>;
 export const DEAL_STATUSES = ['in_work', 'won', 'lost'] as const;
 export const dealStatusSchema = z.enum(DEAL_STATUSES);
 export type DealStatus = z.infer<typeof dealStatusSchema>;
+
+export const DEAL_STATUS_LABELS: Record<DealStatus, string> = {
+  in_work: 'В работе',
+  won: 'Продажа',
+  lost: 'Отказ',
+};
+
+export type StageSemantics = 'process' | 'success' | 'failure';
+
+/** Семантика стадии Bitrix24 в любом виде (S/F/P или success/failure/process) → единый вид. */
+export function normalizeStageSemantics(...values: (string | null | undefined)[]): StageSemantics {
+  for (const v of values) {
+    const x = (v ?? '').toLowerCase();
+    if (x === 's' || x === 'success') return 'success';
+    if (x === 'f' || x === 'failure') return 'failure';
+    if (x === 'p' || x === 'process') return 'process';
+  }
+  return 'process';
+}
+
+/** Статус по умолчанию, пока владелец не сопоставил стадию сам. */
+export function defaultDealStatus(semantics: string | null | undefined): DealStatus {
+  const s = normalizeStageSemantics(semantics);
+  return s === 'success' ? 'won' : s === 'failure' ? 'lost' : 'in_work';
+}

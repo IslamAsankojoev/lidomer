@@ -267,8 +267,10 @@ export const b24Stages = pgTable(
     workspaceId: workspaceId(),
     stageId: text('stage_id').notNull(),
     categoryId: integer('category_id').notNull(),
+    /** Название направления (воронки); null — портал не отдал. */
+    categoryName: text('category_name'),
     name: text('name').notNull(),
-    /** Семантика Bitrix24: P — в работе, S — успех, F — провал. */
+    /** Семантика Bitrix24: process — в работе, success — успех, failure — провал. */
     semantics: text('semantics'),
     sort: integer('sort'),
     /** Сопоставление владельца; пока null — по семантике. */
