@@ -1,6 +1,7 @@
 'use client';
 
 import { PageHeader } from '@/components/page-header';
+import { formatPeriod } from '@/components/period-bar';
 import { EmptyState } from '@/components/state';
 import { usePeriod } from '@/lib/period';
 import { useWorkspace } from '@/lib/workspace';
@@ -16,7 +17,7 @@ export default function OverviewPage() {
       />
       <EmptyState
         title="Нет данных за период"
-        description={`Источники ещё не подключены, поэтому за ${range.from} — ${range.to} цифр нет. Мы не показываем нули вместо отсутствующих данных.`}
+        description={`Источники ещё не подключены, поэтому за ${formatPeriod(range)} цифр нет. Мы не показываем нули вместо отсутствующих данных.`}
       />
     </>
   );
