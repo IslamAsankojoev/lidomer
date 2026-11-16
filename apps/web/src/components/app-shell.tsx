@@ -3,7 +3,7 @@
 import { can } from '@lidomer/shared';
 import { Menu } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,14 @@ import { useWorkspace } from '@/lib/workspace';
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { workspace } = useWorkspace();
+  // Период переносится между разделами, остальные фильтры — нет.
+  const params = useSearchParams();
+  const period = new URLSearchParams();
+  for (const k of ['period', 'from', 'to']) {
+    const v = params.get(k);
+    if (v) period.set(k, v);
+  }
+  const suffix = period.size ? `?${period.toString()}` : '';
   return (
     <nav className="flex flex-col gap-1" aria-label="Разделы">
       {NAV.filter((i) => !i.permission || can(workspace.role, i.permission)).map(
