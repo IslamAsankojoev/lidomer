@@ -11,9 +11,12 @@ import {
   leadsResponseSchema,
 } from '@lidomer/shared';
 import { useQuery } from '@tanstack/react-query';
+import { Download } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { parseAsInteger, parseAsStringLiteral, useQueryStates } from 'nuqs';
+import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +32,9 @@ import {
 import { useApi } from '@/lib/api';
 import { int, money } from '@/lib/format';
 import { usePeriod } from '@/lib/period';
+import { exportCsv, exportXlsx } from '@/lib/export';
 import { useWorkspace } from '@/lib/workspace';
+import { LeadSheet } from './lead-sheet';
 
 const PAGE = 50;
 const METRIC_LABELS: Record<(typeof LEAD_METRICS)[number], string> = {
@@ -56,6 +61,7 @@ const filters = {
   channel: parseAsStringLiteral(LEAD_CHANNELS),
   status: parseAsStringLiteral(DEAL_STATUSES),
   flag: parseAsStringLiteral(LEAD_FLAGS),
+  adKey: parseAsString,
   page: parseAsInteger.withDefault(0),
 };
 
@@ -99,6 +105,7 @@ export default function LeadsPage() {
   if (f.channel) params.set('channel', f.channel);
   if (f.status) params.set('status', f.status);
   if (f.flag) params.set('flag', f.flag);
+  if (f.adKey) params.set('adKey', f.adKey);
 
   const q = useQuery({
     queryKey: ['leads', workspace.id, params.toString()],
@@ -107,6 +114,33 @@ export default function LeadsPage() {
     placeholderData: (prev) => prev,
   });
   const set = (patch: Partial<typeof f>) => void setF({ ...patch, page: 0 });
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  /** Выгрузка всех лидов по текущим фильтрам (не только страницы). */
+  const runExport = async (kind: 'csv' | 'xlsx') => {
+    setExporting(true);
+    try {
+      const all = [];
+      for (let offset = 0; ; offset += 500) {
+        const p = new URLSearchParams(params);
+        p.set('limit', '500');
+        p.set('offset', String(offset));
+        const page = await api(leadsResponseSchema, `/leads?${p.toString()}`, {
+          workspaceId: workspace.id,
+        });
+        all.push(...page.items);
+        if (all.length >= page.total || !page.items.length) break;
+      }
+      const name = `лиды_${range.from}_${range.to}`;
+      if (kind === 'csv') exportCsv(all, name);
+      else await exportXlsx(all, name);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Не удалось выгрузить');
+    } finally {
+      setExporting(false);
+    }
+  };
   const pages = q.data ? Math.max(1, Math.ceil(q.data.total / PAGE)) : 1;
 
   return (
@@ -148,15 +182,35 @@ export default function LeadsPage() {
           labels={LEAD_FLAG_LABELS}
           onChange={(v) => set({ flag: v })}
         />
-        {(f.metric || f.channel || f.status || f.flag) && (
+        {(f.metric || f.channel || f.status || f.flag || f.adKey) && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => set({ metric: null, channel: null, status: null, flag: null })}
+            onClick={() =>
+              set({ metric: null, channel: null, status: null, flag: null, adKey: null })
+            }
           >
             Сбросить
           </Button>
         )}
+        <div className="ml-auto flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exporting}
+            onClick={() => void runExport('csv')}
+          >
+            <Download className="size-4" /> CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exporting}
+            onClick={() => void runExport('xlsx')}
+          >
+            <Download className="size-4" /> Excel
+          </Button>
+        </div>
       </div>
 
       {q.isPending ? (
@@ -184,7 +238,7 @@ export default function LeadsPage() {
               </TableHeader>
               <TableBody>
                 {q.data.items.map((l) => (
-                  <TableRow key={l.id}>
+                  <TableRow key={l.id} className="cursor-pointer" onClick={() => setOpenId(l.id)}>
                     <TableCell className="whitespace-nowrap text-sm">
                       {format(parseISO(l.createdAt), 'd MMM, HH:mm', { locale: ru })}
                     </TableCell>
@@ -275,6 +329,7 @@ export default function LeadsPage() {
           </div>
         </>
       )}
+      <LeadSheet id={openId} onClose={() => setOpenId(null)} />
     </>
   );
 }

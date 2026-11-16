@@ -11,7 +11,10 @@
         "DATABASE_URL",
         "WEB_ORIGIN",
         "WEB_ORIGIN_PATTERN",
-        "LOG_LEVEL"
+        "LOG_LEVEL",
+        "ENCRYPTION_KEY",
+        "CRON_SECRET",
+        "META_*"
       ]
     },
     "dev": {

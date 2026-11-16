@@ -35,6 +35,16 @@ import {
 } from 'drizzle-orm';
 import { DB } from '../db/db.module';
 
+export interface DailyPoint {
+  day: string;
+  adLeads: number;
+  organicLeads: number;
+  directUnknownLeads: number;
+  otherLeads: number;
+  sales: number;
+  spendMinor: number | null;
+}
+
 /** Условие на журнал лидов для метрики — то же правило, что в buildMetrics. */
 export function metricCondition(metric: LeadMetric): SQL | undefined {
   const fresh = eq(leads.isRepeat, false);
@@ -130,7 +140,7 @@ export class MetricsRepository {
       .groupBy(m.day);
     const byDay = new Map(rows.map((r) => [r.day, r]));
     // Все дни периода, включая пустые: пустой день — 0 лидов (источники ответили), а не пропуск.
-    const points = [];
+    const points: DailyPoint[] = [];
     for (let d = from; d <= to; d = shiftDay(d, 1)) {
       const r = byDay.get(d);
       points.push({

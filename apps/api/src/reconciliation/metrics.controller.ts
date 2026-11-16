@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Patch,
   Put,
   Query,
 } from '@nestjs/common';
@@ -18,6 +19,9 @@ import {
   countingSettingsSchema,
   type CreateOverrideRequest,
   createOverrideRequestSchema,
+  type LeadChannel,
+  leadChannelSchema,
+  type LeadDetailResponse,
   type LeadItem,
   type LeadsQuery,
   leadsQuerySchema,
@@ -25,6 +29,8 @@ import {
   periodSchema,
   shiftDay,
   type SummaryResponse,
+  type UpdateWorkspaceRequest,
+  updateWorkspaceRequestSchema,
 } from '@lidomer/shared';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -34,9 +40,14 @@ import { ZodPipe } from '../common/zod.pipe';
 import { DB } from '../db/db.module';
 import { MembershipRepository } from '../workspaces/membership.repository';
 import { MetricsRepository, preliminaryFrom } from './metrics.repository';
+import { InsightsRepository } from './insights.repository';
 import { ReconciliationService } from './reconciliation.service';
+import { buildTimeline } from './timeline';
 
 const periodQuery = new ZodPipe(periodSchema);
+const periodWithChannel = z
+  .object({ from: z.string(), to: z.string(), channel: leadChannelSchema.optional() })
+  .refine((p) => periodSchema.safeParse(p).success, 'Неверный период');
 
 /** Наблюдатель видит телефоны в маске. */
 function protect(item: LeadItem, ws: WorkspaceContext): LeadItem {
@@ -50,6 +61,7 @@ export class MetricsController {
     @Inject(MetricsRepository) private readonly repo: MetricsRepository,
     @Inject(ReconciliationService) private readonly reconciliation: ReconciliationService,
     @Inject(MembershipRepository) private readonly membership: MembershipRepository,
+    @Inject(InsightsRepository) private readonly insights: InsightsRepository,
   ) {}
 
   private async timezone(workspaceId: string): Promise<string> {
@@ -117,20 +129,82 @@ export class MetricsController {
   async lead(
     @CurrentWorkspace() ws: WorkspaceContext,
     @Param('id', new ZodPipe(z.string().max(64))) id: string,
-  ) {
+  ): Promise<LeadDetailResponse> {
     const res = await this.repo.getLead(ws.workspaceId, id);
     if (!res) throw new NotFoundException('Лид не найден');
+    const overrides = res.overrides.map((o) => ({
+      id: o.id,
+      field: o.field,
+      value: o.value,
+      reason: o.reason,
+      createdAt: o.createdAt.toISOString(),
+      revokedAt: o.revokedAt?.toISOString() ?? null,
+    }));
+    const src = await this.insights.leadSources(
+      ws.workspaceId,
+      res.item.wardLeadId,
+      res.item.dealId,
+    );
+    const item = protect(res.item, ws);
     return {
-      item: protect(res.item, ws),
-      overrides: res.overrides.map((o) => ({
-        id: o.id,
-        field: o.field,
-        value: o.value,
-        reason: o.reason,
-        createdAt: o.createdAt.toISOString(),
-        revokedAt: o.revokedAt?.toISOString() ?? null,
-      })),
+      item,
+      sourceText: src.ward?.sourceText ?? null,
+      facts: (src.ward?.facts as Record<string, unknown> | null) ?? null,
+      timeline: buildTimeline(item, src, overrides),
+      overrides,
     };
+  }
+
+  @Get('insights/heatmap')
+  @RequirePermission('metrics:read')
+  heatmap(
+    @CurrentWorkspace() ws: WorkspaceContext,
+    @Query(new ZodPipe(periodWithChannel)) p: { from: string; to: string; channel?: LeadChannel },
+  ) {
+    return this.insights.heatmap(ws.workspaceId, p.from, p.to, p.channel);
+  }
+
+  @Get('insights/asks')
+  @RequirePermission('metrics:read')
+  asks(
+    @CurrentWorkspace() ws: WorkspaceContext,
+    @Query(periodQuery) p: { from: string; to: string },
+  ) {
+    return this.insights.asks(ws.workspaceId, p.from, p.to);
+  }
+
+  @Get('metrics/funnel')
+  @RequirePermission('metrics:read')
+  funnel(
+    @CurrentWorkspace() ws: WorkspaceContext,
+    @Query(periodQuery) p: { from: string; to: string },
+  ) {
+    return this.insights.funnel(ws.workspaceId, p.from, p.to);
+  }
+
+  /** Компания: название и часовой пояс. Смена пояса пересчитывает дни лидов. */
+  @Patch('workspace')
+  @RequirePermission('settings:manage')
+  async updateWorkspace(
+    @CurrentUser() user: AuthUser,
+    @CurrentWorkspace() ws: WorkspaceContext,
+    @Body(new ZodPipe(updateWorkspaceRequestSchema)) body: UpdateWorkspaceRequest,
+  ): Promise<void> {
+    const [before] = await this.db
+      .select({ name: workspaces.name, timezone: workspaces.timezone })
+      .from(workspaces)
+      .where(eq(workspaces.id, ws.workspaceId));
+    await this.db.update(workspaces).set(body).where(eq(workspaces.id, ws.workspaceId));
+    await this.membership.audit({
+      workspaceId: ws.workspaceId,
+      actorUserId: user.id,
+      action: 'workspace.update',
+      entityType: 'workspace',
+      entityId: ws.workspaceId,
+      before,
+      after: body,
+    });
+    if (before?.timezone !== body.timezone) await this.reconciliation.rebuild(ws.workspaceId);
   }
 
   /** Ручное решение по лиду: источники не меняются, правка с автором и причиной. */
@@ -170,7 +244,11 @@ export class MetricsController {
     @Query(periodQuery) p: { from: string; to: string },
   ) {
     const meta = await this.repo.metaConnected(ws.workspaceId);
-    return { items: await this.repo.creatives(ws.workspaceId, p.from, p.to, meta) };
+    const [items, counts] = await Promise.all([
+      this.repo.creatives(ws.workspaceId, p.from, p.to, meta),
+      this.repo.counts(ws.workspaceId, p.from, p.to, meta),
+    ]);
+    return { items, spendCurrency: counts.spendCurrency };
   }
 
   /** Правила подсчёта: окно дублей, какие источники Bitrix24 — реклама, какие не считать. */

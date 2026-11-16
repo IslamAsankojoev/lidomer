@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "echo 'web: unit-тестов пока нет' && exit 0"
+    "test": "echo 'web: unit-\u0442\u0435\u0441\u0442\u043e\u0432 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442' && exit 0",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -17,6 +18,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
     "@tanstack/react-query": "^5.107.1",
+    "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
     "date-fns": "^4.4.0",
@@ -27,12 +29,15 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "^7.92.0",
+    "recharts": "3.8.0",
     "shadcn": "^4.23.0",
     "sonner": "^2.0.8",
     "tw-animate-css": "^1.4.0",
+    "write-excel-file": "^4.1.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^22.18.0",
     "@types/react": "^19",

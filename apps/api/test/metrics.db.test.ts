@@ -32,5 +32,10 @@ describe.runIf(enabled)('из чего сложилось — на данных'
       expect({ metric, total }).toEqual({ metric, total: counts[metric] });
     }
     expect(counts.spendMinor).toBeNull();
+
+    // Итоги «Креативов» = лиды с рекламы и расход на «Обзоре».
+    const creatives = await repo.creatives(ws.id, from, to, false);
+    expect(creatives.reduce((a, c) => a + c.leads, 0)).toBe(counts.adLeads);
+    expect(creatives.every((c) => c.spendMinor === null)).toBe(true);
   });
 });

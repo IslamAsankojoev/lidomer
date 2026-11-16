@@ -6,22 +6,30 @@ import {
   INTEGRATION_LABELS,
   INTEGRATION_STATUS_LABELS,
   type LeadMetric,
+  type SummaryResponse,
   summaryResponseSchema,
 } from '@lidomer/shared';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { Info } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
 import { formatPeriod } from '@/components/period-bar';
+import { Asks } from '@/components/overview/asks';
+import { DailyChart } from '@/components/overview/daily-chart';
+import { Funnel } from '@/components/overview/funnel';
+import { Heatmap } from '@/components/overview/heatmap';
+import { PeriodStrip } from '@/components/overview/period-strip';
+import { TopCreatives } from '@/components/overview/top-creatives';
 import { ErrorState, LoadingState } from '@/components/state';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useApi } from '@/lib/api';
 import { approxSom, int, money } from '@/lib/format';
 import { usePeriod } from '@/lib/period';
 import { usePeriodHref } from '@/lib/period-link';
 import { useWorkspace } from '@/lib/workspace';
-import { cn } from '@/lib/utils';
 
 interface Tile {
   label: string;
@@ -88,11 +96,82 @@ const TILES: Tile[] = [
   },
 ];
 
+function MetricTile({
+  t,
+  current,
+  before,
+  fxRate,
+}: {
+  t: Tile;
+  current: Counts;
+  before: Counts;
+  fxRate: number | null;
+}) {
+  const href = usePeriodHref();
+  const value = t.value(current);
+  const delta = change(value, t.value(before));
+  const shown =
+    value === null ? null : (
+      <>
+        <div className="text-2xl font-semibold tabular-nums">
+          {t.format ? t.format(value, current) : int(value)}
+        </div>
+        {t.format && (
+          <div className="text-xs text-muted-foreground">
+            {approxSom(value, current.spendCurrency, fxRate)}
+          </div>
+        )}
+      </>
+    );
+  return (
+    <Card className="h-full">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-1">
+        <CardTitle className="text-sm font-normal text-muted-foreground">{t.label}</CardTitle>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                aria-label={`Как считается: ${t.label}`}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Info className="size-4" />
+              </button>
+            }
+          />
+          <TooltipContent className="max-w-72">{t.hint}</TooltipContent>
+        </Tooltip>
+      </CardHeader>
+      <CardContent>
+        {value === null ? (
+          <div className="text-sm text-muted-foreground">нет данных с Meta</div>
+        ) : t.metric ? (
+          <Link
+            href={href('/leads', { metric: t.metric })}
+            className="block rounded-md hover:underline"
+            aria-label={`${t.label}: показать лидов`}
+          >
+            {shown}
+          </Link>
+        ) : (
+          shown
+        )}
+        {value !== null && (
+          <div className="text-xs text-muted-foreground">
+            {delta === null
+              ? 'к прошлому периоду: —'
+              : `${delta > 0 ? '+' : ''}${delta}% к прошлому периоду`}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function OverviewPage() {
   const api = useApi();
   const { workspace } = useWorkspace();
   const { range } = usePeriod();
-  const href = usePeriodHref();
   const q = useQuery({
     queryKey: ['summary', workspace.id, range],
     queryFn: () =>
@@ -107,6 +186,7 @@ export default function OverviewPage() {
         title="Обзор"
         description={`${workspace.name} · ${formatPeriod(range)} · дни по ${workspace.timezone}`}
       />
+      <PeriodStrip />
       {q.isPending ? (
         <LoadingState rows={3} />
       ) : q.isError ? (
@@ -114,94 +194,64 @@ export default function OverviewPage() {
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {TILES.map((t) => {
-              const value = t.value(q.data.current);
-              const prev = t.value(q.data.before);
-              const delta = change(value, prev);
-              const noMeta = value === null;
-              const body = (
-                <Card
-                  className={cn('h-full', t.metric && 'transition-colors hover:bg-accent/40')}
-                  title={t.hint}
-                >
-                  <CardHeader className="pb-1">
-                    <CardTitle className="text-sm font-normal text-muted-foreground">
-                      {t.label}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {noMeta ? (
-                      <div className="text-sm text-muted-foreground">нет данных с Meta</div>
-                    ) : (
-                      <>
-                        <div className="text-2xl font-semibold tabular-nums">
-                          {t.format ? t.format(value, q.data.current) : int(value)}
-                        </div>
-                        {t.format && q.data.fx && (
-                          <div className="text-xs text-muted-foreground">
-                            {approxSom(value, q.data.current.spendCurrency, q.data.fx.rate)}
-                          </div>
-                        )}
-                        <div className="text-xs text-muted-foreground">
-                          {delta === null
-                            ? 'к прошлому периоду: —'
-                            : `${delta > 0 ? '+' : ''}${delta}% к прошлому периоду`}
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-              return t.metric ? (
-                <Link
-                  key={t.label}
-                  href={href('/leads', { metric: t.metric })}
-                  aria-label={`${t.label}: показать лидов`}
-                >
-                  {body}
-                </Link>
-              ) : (
-                <div key={t.label}>{body}</div>
-              );
-            })}
+            {TILES.map((t) => (
+              <MetricTile
+                key={t.label}
+                t={t}
+                current={q.data.current}
+                before={q.data.before}
+                fxRate={q.data.fx?.rate ?? null}
+              />
+            ))}
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Состояние данных</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-1 text-sm">
-              {q.data.sources.map((s) => (
-                <div key={s.type} className="flex flex-wrap justify-between gap-2">
-                  <span>{INTEGRATION_LABELS[s.type]}</span>
-                  <span className="text-muted-foreground">
-                    {INTEGRATION_STATUS_LABELS[s.status]}
-                    {s.lastSyncAt &&
-                      ` · ${formatDistanceToNow(parseISO(s.lastSyncAt), { addSuffix: true, locale: ru })}`}
-                  </span>
-                </div>
-              ))}
-              {!q.data.sources.some((s) => s.type === 'meta_ads') && (
-                <div className="flex justify-between">
-                  <span>Meta Ads</span>
-                  <span className="text-muted-foreground">
-                    не подключено — расхода и цены за лид нет
-                  </span>
-                </div>
-              )}
-              {q.data.preliminaryFrom && (
-                <p className="pt-2 text-xs text-muted-foreground">
-                  Данные с {q.data.preliminaryFrom} предварительные: статусы сделок и расход ещё
-                  меняются.
-                </p>
-              )}
-              {q.data.fx && (
-                <p className="text-xs text-muted-foreground">Курс для сомов: {q.data.fx.source}</p>
-              )}
-            </CardContent>
-          </Card>
+          <DailyChart from={range.from} to={range.to} currency={q.data.current.spendCurrency} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Funnel from={range.from} to={range.to} />
+            <TopCreatives from={range.from} to={range.to} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Heatmap from={range.from} to={range.to} />
+            <Asks from={range.from} to={range.to} />
+          </div>
+          <DataState data={q.data} />
         </>
       )}
     </>
+  );
+}
+
+function DataState({ data }: { data: SummaryResponse }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Состояние данных</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-1 text-sm">
+        {data.sources.map((s) => (
+          <div key={s.type} className="flex flex-wrap justify-between gap-2">
+            <span>{INTEGRATION_LABELS[s.type]}</span>
+            <span className="text-muted-foreground">
+              {INTEGRATION_STATUS_LABELS[s.status]}
+              {s.lastSyncAt &&
+                ` · ${formatDistanceToNow(parseISO(s.lastSyncAt), { addSuffix: true, locale: ru })}`}
+            </span>
+          </div>
+        ))}
+        {!data.sources.some((s) => s.type === 'meta_ads' && s.status !== 'disabled') && (
+          <div className="flex flex-wrap justify-between gap-2">
+            <span>Meta Ads</span>
+            <span className="text-muted-foreground">не подключено — расхода и цены за лид нет</span>
+          </div>
+        )}
+        {data.preliminaryFrom && (
+          <p className="pt-2 text-xs text-muted-foreground">
+            Данные с {data.preliminaryFrom} предварительные: статусы сделок и расход ещё меняются.
+          </p>
+        )}
+        {data.fx && (
+          <p className="text-xs text-muted-foreground">Курс для сомов: {data.fx.source}</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
