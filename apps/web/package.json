@@ -15,6 +15,7 @@
     "@base-ui/react": "^1.9.0",
     "@hookform/resolvers": "^7.0.6",
     "@lidomer/shared": "workspace:*",
+    "@sentry/nextjs": "11.10.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
     "@tanstack/react-query": "^5.107.1",

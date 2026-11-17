@@ -1,0 +1,28 @@
+# Сторож расписания (решение 0008): раз в 10 минут спрашивает api, был ли свежий `tick`.
+# Пульс старше 10 минут — api сам шлёт алерт в Telegram и отвечает 503; api не отвечает — запуск
+# падает, и GitHub пишет владельцу на почту. Нужны секрет CRON_SECRET и переменная API_URL репозитория.
+name: watchdog
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Проверить пульс tick
+        env:
+          API_URL: ${{ vars.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Не заданы API_URL (переменная) или CRON_SECRET (секрет) репозитория" >&2
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --max-time 60 --retry 2 --retry-delay 10 \
+            -H "Authorization: Bearer $CRON_SECRET" "$API_URL/jobs/watchdog"

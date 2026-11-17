@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { LoggerModule } from 'nestjs-pino';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
@@ -12,6 +13,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.LOG_LEVEL ?? 'info',
@@ -28,6 +30,8 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
   ],
   controllers: [HealthController],
   providers: [
+    // Необработанные ошибки — в Sentry (без DSN ничего не отправляется); 4xx не считаются ошибками.
+    { provide: APP_FILTER, useClass: SentryGlobalFilter },
     // Порядок важен: сначала вход, потом доступ к компании и роль.
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useExisting: WorkspaceGuard },

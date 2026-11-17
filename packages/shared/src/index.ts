@@ -12,3 +12,4 @@ export * from './schemas/me';
 export * from './schemas/integrations';
 export * from './schemas/metrics';
 export * from './schemas/reports';
+export * from './sentry';

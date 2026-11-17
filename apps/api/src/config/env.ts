@@ -21,6 +21,8 @@ export const envSchema = z.object({
   CRON_SECRET: z.string().min(32),
   /** Токен бота от @BotFather. Без него отчёты и алерты не отправляются. */
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+  /** DSN проекта Sentry; без него ошибки в Sentry не уходят. */
+  SENTRY_DSN: z.url().optional(),
   META_APP_ID: z.string().optional(),
   META_APP_SECRET: z.string().optional(),
   LOG_LEVEL: z.enum(['silent', 'fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),

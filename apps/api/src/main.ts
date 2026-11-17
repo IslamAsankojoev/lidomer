@@ -1,4 +1,6 @@
 // Точка входа: Vercel ищет файл, который сам импортирует NestJS и вызывает listen().
+// Sentry — первым импортом, до NestJS.
+import './instrument';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
