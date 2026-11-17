@@ -22,6 +22,7 @@ import { ConnectForm } from './connect-form';
 import { RunsLog } from './runs-log';
 import { StageMap } from './stage-map';
 import { useIntegrationAction } from './use-integrations';
+import { isBrandSource, SourceLogo } from '@/components/source-badge';
 
 const ICONS: Record<string, LucideIcon> = {
   meta_ads: Megaphone,
@@ -97,9 +98,13 @@ export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canMa
   return (
     <Card className="gap-0 pb-0">
       <CardHeader className="flex flex-row items-start gap-3 pb-4">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Icon className="size-4.5" aria-hidden />
-        </div>
+        {isBrandSource(s.type) ? (
+          <SourceLogo source={s.type} className="size-9" />
+        ) : (
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Icon className="size-4.5" aria-hidden />
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           {/* Статус рядом с названием — описание не сжимается в узкую колонку. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

@@ -36,6 +36,7 @@ import { usePeriod } from '@/lib/period';
 import { exportCsv, exportXlsx } from '@/lib/export';
 import { useWorkspace } from '@/lib/workspace';
 import { LeadSheet } from './lead-sheet';
+import { SourceBadge, SourceLogo } from '@/components/source-badge';
 
 const PAGE = 50;
 const METRIC_LABELS: Record<(typeof LEAD_METRICS)[number], string> = {
@@ -243,9 +244,15 @@ export default function LeadsPage() {
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
-                    <span className="min-w-0 truncate">
-                      {LEAD_CHANNEL_LABELS[l.channel]} · {l.origin === 'ward' ? 'Ward' : 'Bitrix24'}
-                      {l.isRepeat && ' · повтор'}
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <SourceLogo
+                        source={l.origin === 'ward' ? 'ward' : 'bitrix24'}
+                        className="size-3.5"
+                      />
+                      <span className="truncate">
+                        {LEAD_CHANNEL_LABELS[l.channel]}
+                        {l.isRepeat && ' · повтор'}
+                      </span>
                     </span>
                     <span className="shrink-0">
                       {l.dealId ? `№${l.dealId} · ${DEAL_STATUS_LABELS[l.status]}` : 'нет сделки'}
@@ -301,8 +308,11 @@ export default function LeadsPage() {
                           повтор
                         </Badge>
                       )}
-                      <div className="text-xs text-muted-foreground">
-                        {l.origin === 'ward' ? 'Ward' : 'Bitrix24'}
+                      <div className="mt-1">
+                        <SourceBadge
+                          source={l.origin === 'ward' ? 'ward' : 'bitrix24'}
+                          variant="pill"
+                        />
                       </div>
                     </TableCell>
                     <TableCell className="max-w-52 text-sm">
