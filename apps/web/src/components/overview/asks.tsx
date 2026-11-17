@@ -8,21 +8,24 @@ import { useWorkspaceQuery } from './use-workspace-query';
 function Bars({ title, items }: { title: string; items: { label: string; count: number }[] }) {
   const max = Math.max(1, ...items.map((i) => i.count));
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="text-sm font-medium">{title}</div>
+    <div className="flex flex-col gap-2">
+      <div className="text-xs font-medium text-muted-foreground uppercase">{title}</div>
       {items.length ? (
+        // Как в воронке: подпись и число строкой, полоса под ними на всю ширину колонки.
         items.map((i) => (
-          <div key={i.label} className="flex items-center gap-2 text-sm">
-            <span className="w-32 shrink-0 truncate" title={i.label}>
-              {i.label}
-            </span>
-            <div className="h-2 flex-1 rounded-full bg-muted">
+          <div key={i.label} className="flex flex-col gap-1 text-sm">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 truncate" title={i.label}>
+                {i.label}
+              </span>
+              <span className="tabular-nums">{i.count}</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted">
               <div
-                className="h-2 rounded-full bg-[var(--chart-2)]"
+                className="h-1.5 rounded-full bg-[var(--chart-2)]"
                 style={{ width: `${(i.count / max) * 100}%` }}
               />
             </div>
-            <span className="w-8 text-right tabular-nums">{i.count}</span>
           </div>
         ))
       ) : (

@@ -25,7 +25,7 @@ import {
 } from '@lidomer/shared';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { HttpError } from '../common/http';
-import { Storage } from '../common/storage';
+import { PREVIEWS_BUCKET, Storage } from '../common/storage';
 import { ENV, type Env } from '../config/env';
 import { DB } from '../db/db.module';
 import { InsightsRepository } from '../reconciliation/insights.repository';
@@ -182,23 +182,25 @@ export class ReportsService {
       )
       .orderBy(desc(reportRuns.createdAt))
       .limit(30);
-    return Promise.all(
-      rows.map(async (r) => ({
-        id: r.id,
-        reportId: r.reportId,
-        scheduledFor: r.scheduledFor.toISOString(),
-        isTest: r.isTest,
-        status: r.status,
-        caption: r.caption,
-        dataNote: r.dataNote,
-        imageUrl: r.imagePath
-          ? await this.storage.signedUrl(REPORTS_BUCKET, r.imagePath).catch(() => null)
-          : null,
-        deliveries: r.deliveries as ReportRunDto['deliveries'],
-        error: r.error,
-        sentAt: r.sentAt?.toISOString() ?? null,
-      })),
-    );
+    const images = await this.storage
+      .signedUrls(
+        REPORTS_BUCKET,
+        rows.flatMap((r) => (r.imagePath ? [r.imagePath] : [])),
+      )
+      .catch(() => new Map<string, string>());
+    return rows.map((r) => ({
+      id: r.id,
+      reportId: r.reportId,
+      scheduledFor: r.scheduledFor.toISOString(),
+      isTest: r.isTest,
+      status: r.status,
+      caption: r.caption,
+      dataNote: r.dataNote,
+      imageUrl: (r.imagePath && images.get(r.imagePath)) ?? null,
+      deliveries: r.deliveries as ReportRunDto['deliveries'],
+      error: r.error,
+      sentAt: r.sentAt?.toISOString() ?? null,
+    }));
   }
 
   // ---------- Расписание ----------
@@ -396,9 +398,16 @@ export class ReportsService {
             ),
           )
       : [];
-    const preview = async (key: string) => {
+    const signed = await this.storage
+      .signedUrls(
+        PREVIEWS_BUCKET,
+        previews.flatMap((x) => (x.path ? [x.path] : [])),
+        900,
+      )
+      .catch(() => new Map<string, string>());
+    const preview = (key: string) => {
       const p = previews.find((x) => x.id === key)?.path;
-      return p ? this.storage.signedUrl('previews', p, 900).catch(() => null) : null;
+      return (p && signed.get(p)) ?? null;
     };
     return {
       workspaceName: ws.name,
@@ -411,19 +420,17 @@ export class ReportsService {
       before: before as unknown as Record<string, number | null>,
       spendCurrency: current.spendCurrency,
       fxRate: fx?.rate ?? null,
-      creatives: await Promise.all(
-        top.map(async (c) => ({
-          title:
-            c.adName ??
-            (/^\d{10,}$/.test(c.adKey)
-              ? `Объявление #…${c.adKey.slice(-6)}`
-              : c.adKey.replace(/^utm:/, '') || 'Без объявления'),
-          subtitle: [c.campaignName, c.adsetName].filter(Boolean).join(' › ') || null,
-          leads: c.leads,
-          sales: c.sales,
-          previewUrl: await preview(c.adKey),
-        })),
-      ),
+      creatives: top.map((c) => ({
+        title:
+          c.adName ??
+          (/^\d{10,}$/.test(c.adKey)
+            ? `Объявление #…${c.adKey.slice(-6)}`
+            : c.adKey.replace(/^utm:/, '') || 'Без объявления'),
+        subtitle: [c.campaignName, c.adsetName].filter(Boolean).join(' › ') || null,
+        leads: c.leads,
+        sales: c.sales,
+        previewUrl: preview(c.adKey),
+      })),
       funnel: funnel
         ? {
             conversations: funnel.conversations,

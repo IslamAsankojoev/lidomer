@@ -8,7 +8,7 @@ import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { NAV } from '@/components/nav';
+import { NAV, navItemFor } from '@/components/nav';
 import { PeriodBar } from '@/components/period-bar';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { UserMenu } from '@/components/user-menu';
@@ -29,7 +29,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="flex flex-col gap-1" aria-label="Разделы">
       {NAV.filter((i) => !i.permission || can(workspace.role, i.permission)).map(
         ({ href, label, icon: Icon }) => {
-          const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+          const active = navItemFor(pathname)?.href === href;
           return (
             <Link
               key={href}
@@ -56,6 +56,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const { workspace } = useWorkspace();
   const [open, setOpen] = useState(false);
+  const withPeriod = navItemFor(usePathname())?.period === true;
 
   return (
     <div className="flex min-h-dvh">
@@ -64,35 +65,40 @@ export function AppShell({ children }: { children: ReactNode }) {
         <NavLinks />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex flex-col gap-2 border-b bg-background/90 px-4 py-3 backdrop-blur md:px-6">
-          <div className="flex items-center gap-2">
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="md:hidden"
-                    aria-label="Открыть меню"
-                  >
-                    <Menu className="size-5" />
-                  </Button>
-                }
-              />
-              <SheetContent side="left" className="w-72 p-4">
-                <SheetTitle className="px-3">{workspace.name}</SheetTitle>
-                <NavLinks onNavigate={() => setOpen(false)} />
-              </SheetContent>
-            </Sheet>
-            <span className="truncate font-semibold md:hidden">{workspace.name}</span>
-            <div className="ml-auto flex items-center gap-1">
-              <ThemeToggle />
-              <UserMenu />
+        <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur">
+          {/* Та же ширина и отступы, что у <main>: шапка и контент выровнены на широких экранах. */}
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-2.5 md:px-6 md:py-3">
+            <div className="flex items-center gap-2">
+              <Sheet open={open} onOpenChange={setOpen}>
+                <SheetTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="md:hidden"
+                      aria-label="Открыть меню"
+                    >
+                      <Menu className="size-5" />
+                    </Button>
+                  }
+                />
+                <SheetContent side="left" className="w-72 p-4">
+                  <SheetTitle className="px-3">{workspace.name}</SheetTitle>
+                  <NavLinks onNavigate={() => setOpen(false)} />
+                </SheetContent>
+              </Sheet>
+              <span className="truncate font-semibold md:hidden">{workspace.name}</span>
+              <div className="ml-auto flex items-center gap-1">
+                <ThemeToggle />
+                <UserMenu />
+              </div>
             </div>
+            {withPeriod && <PeriodBar />}
           </div>
-          <PeriodBar />
         </header>
-        <main className="flex flex-1 flex-col gap-6 px-4 py-6 md:px-6">{children}</main>
+        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-5 md:gap-6 md:px-6 md:py-6">
+          {children}
+        </main>
       </div>
     </div>
   );

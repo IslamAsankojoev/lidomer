@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { int } from '@/lib/format';
+import { usePeriod } from '@/lib/period';
+import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace';
 import { useWorkspaceQuery } from './use-workspace-query';
 
@@ -18,21 +20,33 @@ function StripCell({ preset, label, hint }: (typeof PRESETS)[number] & { hint?: 
   const { workspace } = useWorkspace();
   const r = resolvePreset(preset, workspace.timezone);
   const q = useWorkspaceQuery(summaryResponseSchema, `/metrics/summary?from=${r.from}&to=${r.to}`);
+  const active = usePeriod().preset === preset;
   return (
-    <Link href={`/?period=${preset}`} className="min-w-0 flex-1">
-      <Card className="h-full transition-colors hover:bg-accent/40">
-        <CardContent className="flex flex-col gap-0.5 py-3">
-          <div className="text-xs text-muted-foreground">
+    <Link
+      href={`/?period=${preset}`}
+      className="min-w-0 rounded-xl"
+      aria-current={active ? 'true' : undefined}
+    >
+      <Card
+        size="sm"
+        className={cn(
+          'h-full transition-colors hover:bg-accent/40',
+          active && 'bg-primary/5 ring-primary/60',
+        )}
+      >
+        <CardContent className="flex flex-col gap-0.5">
+          <div className="truncate text-xs text-muted-foreground">
             {label}
-            {hint && ` · ${hint}`}
+            {hint && <span className="hidden sm:inline"> · {hint}</span>}
           </div>
           {q.data ? (
             <>
-              <div className="text-lg font-semibold tabular-nums">
-                {int(q.data.current.totalLeads)} лидов
+              <div className="text-base font-semibold tabular-nums sm:text-lg">
+                {int(q.data.current.totalLeads)}
+                <span className="hidden sm:inline"> лидов</span>
               </div>
-              <div className="text-xs text-muted-foreground">
-                с рекламы {int(q.data.current.adLeads)} · продаж {int(q.data.current.sales)}
+              <div className="text-[11px] leading-tight text-muted-foreground sm:text-xs">
+                реклама {int(q.data.current.adLeads)} · продаж {int(q.data.current.sales)}
               </div>
             </>
           ) : (
@@ -47,7 +61,7 @@ function StripCell({ preset, label, hint }: (typeof PRESETS)[number] & { hint?: 
 /** Полоса «Сегодня · Неделя · Месяц»: клик ставит этот период. */
 export function PeriodStrip() {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row">
+    <div className="grid grid-cols-3 gap-2 sm:gap-3">
       {PRESETS.map((p) => (
         <StripCell key={p.preset} {...p} />
       ))}

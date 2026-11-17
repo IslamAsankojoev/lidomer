@@ -46,7 +46,7 @@ export function DailyChart({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Лиды по дням</CardTitle>
+        <CardTitle>Лиды по дням</CardTitle>
         <CardDescription>Новые лиды по каналам; повторные обращения не входят</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -56,8 +56,8 @@ export function DailyChart({
           <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
         ) : (
           <>
-            <ChartContainer config={config} className="aspect-auto h-64 w-full">
-              <AreaChart data={points} margin={{ left: -16, right: 8, top: 8 }}>
+            <ChartContainer config={config} className="aspect-auto h-60 w-full sm:h-72">
+              <AreaChart data={points} margin={{ left: 0, right: 8, top: 8 }}>
                 <defs>
                   {(Object.keys(config) as (keyof typeof config)[]).map((k) => (
                     <linearGradient key={k} id={`fill-${k}`} x1="0" y1="0" x2="0" y2="1">
@@ -74,7 +74,7 @@ export function DailyChart({
                   axisLine={false}
                   minTickGap={16}
                 />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={40} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} width="auto" />
                 <ChartTooltip
                   cursor={{ strokeDasharray: '3 3' }}
                   content={
@@ -104,7 +104,7 @@ export function DailyChart({
               <div className="mb-1 text-sm text-muted-foreground">Цена за лид · факт</div>
               {hasSpend ? (
                 <ChartContainer config={cplConfig} className="aspect-auto h-28 w-full">
-                  <AreaChart data={cpl} margin={{ left: -16, right: 8, top: 4 }}>
+                  <AreaChart data={cpl} margin={{ left: 0, right: 8, top: 4 }}>
                     <defs>
                       <linearGradient id="fill-cpl" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="var(--color-cpl)" stopOpacity={0.5} />
@@ -121,7 +121,7 @@ export function DailyChart({
                     <YAxis
                       tickLine={false}
                       axisLine={false}
-                      width={40}
+                      width="auto"
                       tickFormatter={(v: number) => money(v, currency) ?? ''}
                     />
                     <ChartTooltip
@@ -143,7 +143,7 @@ export function DailyChart({
                   </AreaChart>
                 </ChartContainer>
               ) : (
-                <div className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                <div className="rounded-lg border border-dashed px-3 py-2.5 text-xs text-muted-foreground sm:text-sm">
                   нет данных с Meta — подключите Meta Ads, чтобы видеть расход и цену за лид
                 </div>
               )}

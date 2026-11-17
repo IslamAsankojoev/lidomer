@@ -2,6 +2,7 @@
 
 import { PERIOD_LABELS, PERIOD_PRESETS, type PeriodPreset } from '@lidomer/shared';
 import { format, parseISO } from 'date-fns';
+import { useEffect, useRef } from 'react';
 import { ru } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -17,6 +18,13 @@ export function formatPeriod({ from, to }: { from: string; to: string }): string
 /** Панель периода. Значение живёт в URL. */
 export function PeriodBar() {
   const { preset, range, setState } = usePeriod();
+  // На телефоне кнопки периода прокручиваются в строку — выбранная всегда в поле зрения.
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current
+      ?.querySelector('[data-pressed]')
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [preset]);
 
   const choose = (next: PeriodPreset) => {
     if (next === 'custom') void setState({ period: 'custom', from: range.from, to: range.to });
@@ -24,7 +32,10 @@ export function PeriodBar() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div
+      ref={ref}
+      className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+    >
       <ToggleGroup
         variant="outline"
         size="sm"
@@ -34,14 +45,10 @@ export function PeriodBar() {
           if (next) choose(next);
         }}
         aria-label="Период"
-        className="flex-wrap"
+        className="-mx-4 w-[calc(100%+2rem)] scroll-px-4 flex-nowrap overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:px-0"
       >
         {PERIOD_PRESETS.map((p) => (
-          <ToggleGroupItem
-            key={p}
-            value={p}
-            className="data-[pressed]:border-primary data-[pressed]:bg-primary data-[pressed]:text-primary-foreground"
-          >
+          <ToggleGroupItem key={p} value={p}>
             {PERIOD_LABELS[p]}
           </ToggleGroupItem>
         ))}
@@ -73,7 +80,7 @@ export function PeriodBar() {
           />
         </div>
       ) : (
-        <span className="text-sm text-muted-foreground" data-testid="period-range">
+        <span className="text-xs text-muted-foreground sm:text-sm" data-testid="period-range">
           {formatPeriod(range)}
         </span>
       )}

@@ -71,28 +71,30 @@ export function ConnectForm({ type, reconnect }: { type: IntegrationType; reconn
 
   return (
     <form
-      className="flex flex-col gap-2 sm:flex-row sm:items-end"
       onSubmit={(e) => {
         e.preventDefault();
         if (value.trim()) submit({ [field.key]: value.trim() });
       }}
     >
-      <Field className="flex-1">
+      <Field>
         <FieldLabel htmlFor={`connect-${type}`}>{field.label}</FieldLabel>
-        <Input
-          id={`connect-${type}`}
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder={field.placeholder}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            id={`connect-${type}`}
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={field.placeholder}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="sm:flex-1"
+          />
+          <Button type="submit" disabled={action.isPending || !value.trim()}>
+            {action.isPending ? 'Проверяем…' : reconnect ? 'Заменить ключ' : 'Подключить'}
+          </Button>
+        </div>
         <FieldDescription>{field.hint}</FieldDescription>
       </Field>
-      <Button type="submit" disabled={action.isPending || !value.trim()} className="sm:mb-6">
-        {action.isPending ? 'Проверяем…' : reconnect ? 'Заменить ключ' : 'Подключить'}
-      </Button>
     </form>
   );
 }
