@@ -15,7 +15,7 @@ const COLUMNS: { title: string; value: (l: LeadItem) => string | number | null }
   { title: 'Телефон', value: (l) => l.phone },
   { title: 'Instagram', value: (l) => l.instagram },
   { title: 'Канал', value: (l) => LEAD_CHANNEL_LABELS[l.channel] },
-  { title: 'Источник', value: (l) => (l.origin === 'ward' ? 'Ward' : 'Bitrix24') },
+  { title: 'Источник', value: (l) => (l.origin === 'ward' ? 'WARD' : 'Bitrix24') },
   { title: 'Кампания', value: (l) => l.campaignName },
   { title: 'Группа', value: (l) => l.adsetName },
   { title: 'Объявление', value: (l) => l.adName ?? l.adKey },

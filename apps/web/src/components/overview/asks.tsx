@@ -44,8 +44,8 @@ export function Asks({ from, to }: { from: string; to: string }) {
         <CardTitle className="text-base">Что спрашивают</CardTitle>
         <CardDescription>
           {q.data
-            ? `Анкета Ward есть у ${q.data.withFacts} из ${q.data.wardLeads} лидов Ward`
-            : 'Анкета бота Ward'}
+            ? `Анкета WARD есть у ${q.data.withFacts} из ${q.data.wardLeads} лидов WARD`
+            : 'Анкета бота WARD'}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6 sm:grid-cols-2">

@@ -152,7 +152,7 @@ export default function LeadsPage() {
         description={
           f.metric
             ? `Из чего сложилось: «${METRIC_LABELS[f.metric]}» — ${q.data ? int(q.data.total) : '…'}`
-            : 'Единый журнал: лид Ward со своей сделкой или сделка Bitrix24 без Ward'
+            : 'Единый журнал: лид WARD со своей сделкой или сделка Bitrix24 без WARD'
         }
         actions={<PeriodBar />}
       />

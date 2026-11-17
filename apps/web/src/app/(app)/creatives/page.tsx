@@ -58,7 +58,7 @@ function byCampaign(items: CreativeItem[]): Row[] {
   const m = new Map<string, Row>();
   for (const c of items) {
     const key =
-      c.campaignName ?? (/^\d{10,}$/.test(c.adKey) ? 'Ward: кампания неизвестна' : 'Без кампании');
+      c.campaignName ?? (/^\d{10,}$/.test(c.adKey) ? 'WARD: кампания неизвестна' : 'Без кампании');
     const r = m.get(key) ?? {
       adKey: `campaign:${key}`,
       adName: key,

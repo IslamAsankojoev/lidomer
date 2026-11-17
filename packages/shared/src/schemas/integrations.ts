@@ -44,7 +44,7 @@ export const syncRunsResponseSchema = z.object({ runs: z.array(syncRunSummarySch
 
 /** Ключи для подключения. Значения уходят только в api и хранятся зашифрованными. */
 export const connectWardRequestSchema = z.object({
-  apiKey: z.string().min(1, 'Вставьте ключ Ward'),
+  apiKey: z.string().min(1, 'Вставьте ключ WARD'),
 });
 export const connectBitrix24RequestSchema = z.object({
   webhookUrl: z.string().min(1, 'Вставьте адрес вебхука'),

@@ -36,7 +36,7 @@ describe.runIf(enabled)('очередь задач на базе', { timeout: 60
     async run(job, secrets, ctx) {
       expect(secrets.apiKey).toBe('wdr_test_secret');
       const day = String(job.params.day);
-      if (day === '2026-11-03') throw new HttpError(401, 'Ward: ключ неверный');
+      if (day === '2026-11-03') throw new HttpError(401, 'WARD: ключ неверный');
       ran.push(day);
       await ctx.recordRaw({
         endpoint: '/leads',
@@ -80,7 +80,7 @@ describe.runIf(enabled)('очередь задач на базе', { timeout: 60
       .values({
         workspaceId,
         type: 'ward',
-        name: 'Ward',
+        name: 'WARD',
         status: 'connected',
         secretsEncrypted: box.seal({ apiKey: 'wdr_test_secret' }),
       })

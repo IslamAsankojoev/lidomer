@@ -253,7 +253,7 @@ describe('интеграции и задачи', () => {
     ]);
   });
 
-  it('неверный ключ Ward отклоняется до обращения к Ward', async () => {
+  it('неверный ключ WARD отклоняется до обращения к WARD', async () => {
     const res = await request(app.getHttpServer())
       .put('/integrations/ward')
       .set('Authorization', await as('marketer'))

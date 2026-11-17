@@ -24,7 +24,7 @@ const snap = (p: Partial<ReportSnapshot> = {}): ReportSnapshot => ({
   fxRate: 87.45,
   creatives: [{ title: 'Риэлт 2', subtitle: null, leads: 30, sales: 0, previewUrl: null }],
   funnel: null,
-  sources: [{ name: 'Ward', at: '09:01', ok: true }],
+  sources: [{ name: 'WARD', at: '09:01', ok: true }],
   dataNote: null,
   ...p,
 });
@@ -47,8 +47,8 @@ describe('подпись отчёта', () => {
     expect(caption).toMatch(/Расход: 123,45\s\$ \(≈ 10\s796 сом\)/);
   });
   it('пометка о несвежих данных', () => {
-    expect(buildCaption(snap({ dataNote: 'данные Ward на 08:40' })).caption).toContain(
-      '⚠️ данные Ward на 08:40',
+    expect(buildCaption(snap({ dataNote: 'данные WARD на 08:40' })).caption).toContain(
+      '⚠️ данные WARD на 08:40',
     );
   });
   it('длинный текст делится: подпись ≤ 1024, остальное — отдельно', () => {

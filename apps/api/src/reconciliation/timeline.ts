@@ -47,7 +47,7 @@ export function buildTimeline(
     ev.push({
       at: src.ward.createdAt.toISOString(),
       kind: 'ward_lead',
-      title: 'Написал в Instagram — лид Ward',
+      title: 'Написал в Instagram — лид WARD',
       details:
         [src.ward.sourceText, adText && `объявление: ${adText}`].filter(Boolean).join(' · ') ||
         null,

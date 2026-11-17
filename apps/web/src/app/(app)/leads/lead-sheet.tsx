@@ -161,7 +161,7 @@ export function LeadSheet({ id, onClose }: { id: string | null; onClose: () => v
                 <section>
                   <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
                     <SourceLogo source="ward" />
-                    Анкета Ward
+                    Анкета WARD
                   </h3>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                     {Object.entries(q.data.facts).map(([k, v]) => (
