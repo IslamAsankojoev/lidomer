@@ -18,6 +18,8 @@ import {
   reportPeriodRange,
   type ReportRunDto,
   reportScheduleSchema,
+  type ReportPreviewRequest,
+  type ReportPreviewResponse,
   type ReportSnapshot,
   shiftDay,
   slotUtc,
@@ -33,6 +35,7 @@ import { MetricsRepository } from '../reconciliation/metrics.repository';
 import { buildCaption } from './caption';
 import { signRun } from './signing';
 import { TelegramService } from './telegram.service';
+import { pngToPdf } from './pdf';
 
 const REPORTS_BUCKET = 'reports';
 /** Сколько ждать свежих данных после слота. */
@@ -239,6 +242,24 @@ export class ReportsService {
     return run!.id;
   }
 
+  /**
+   * Предпросмотр в конструкторе: снимок цифр «как если бы отчёт ушёл сейчас» и подпись.
+   * Ничего не сохраняет и никуда не отправляет.
+   */
+  async preview(workspaceId: string, input: ReportPreviewRequest): Promise<ReportPreviewResponse> {
+    const [ws] = await this.db.select().from(workspaces).where(eq(workspaces.id, workspaceId));
+    if (!ws) throw new NotFoundException('Компания не найдена');
+    const sources = await this.db
+      .select()
+      .from(integrations)
+      .where(eq(integrations.workspaceId, ws.id));
+    const active = sources.filter(
+      (s) => s.status !== 'disabled' && s.status !== 'not_connected' && CADENCE_MS[s.type],
+    );
+    const snapshot = await this.snapshot(ws, input, new Date(), active, null);
+    return { snapshot, ...buildCaption(snapshot) };
+  }
+
   // ---------- Запуск ----------
 
   /**
@@ -311,11 +332,17 @@ export class ReportsService {
           .select({ chatId: reportRecipients.chatId, threadId: reportRecipients.threadId })
           .from(reportRecipients)
           .where(eq(reportRecipients.reportId, report.id));
+    // PDF — та же картинка одной страницей, уходит файлом; в истории остаётся PNG.
+    const { format } = reportConfigSchema.parse(report.config);
+    const pdf =
+      format === 'pdf' ? await pngToPdf(png, `${report.name} · ${snapshot.period.from}`) : null;
+    const pdfName = `${report.name} ${snapshot.period.from === snapshot.period.to ? snapshot.period.from : `${snapshot.period.from}_${snapshot.period.to}`}.pdf`;
     const deliveries = [];
     for (const r of recipients) {
       try {
         const tg = this.telegram.client();
-        await tg.sendPhoto(r.chatId, png, caption, r.threadId);
+        if (pdf) await tg.sendDocument(r.chatId, pdf, pdfName, caption, r.threadId);
+        else await tg.sendPhoto(r.chatId, png, caption, r.threadId);
         if (rest) await tg.sendMessage(r.chatId, rest, r.threadId);
         deliveries.push({ ...r, ok: true, error: null });
       } catch (err) {
@@ -362,7 +389,7 @@ export class ReportsService {
 
   private async snapshot(
     ws: typeof workspaces.$inferSelect,
-    report: typeof reports.$inferSelect,
+    report: Pick<typeof reports.$inferSelect, 'name' | 'config'>,
     slot: Date,
     sources: (typeof integrations.$inferSelect)[],
     dataNote: string | null,

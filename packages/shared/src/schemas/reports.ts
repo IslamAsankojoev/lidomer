@@ -108,3 +108,14 @@ export const reportSnapshotSchema = z.object({
   dataNote: z.string().nullable(),
 });
 export type ReportSnapshot = z.infer<typeof reportSnapshotSchema>;
+
+/** Предпросмотр отчёта в конструкторе: те же цифры, картинка и подпись, что уйдут в Telegram. */
+export const reportPreviewRequestSchema = reportInputSchema.pick({ name: true, config: true });
+export type ReportPreviewRequest = z.infer<typeof reportPreviewRequestSchema>;
+export const reportPreviewResponseSchema = z.object({
+  snapshot: reportSnapshotSchema,
+  caption: z.string(),
+  /** Продолжение подписи отдельным сообщением, если не влезла в 1024 символа. */
+  rest: z.string().nullable(),
+});
+export type ReportPreviewResponse = z.infer<typeof reportPreviewResponseSchema>;

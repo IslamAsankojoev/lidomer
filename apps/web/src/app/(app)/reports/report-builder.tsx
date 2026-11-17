@@ -3,6 +3,9 @@
 import {
   REPORT_BLOCK_LABELS,
   REPORT_BLOCKS,
+  REPORT_FORMAT_LABELS,
+  REPORT_FORMATS,
+  type ReportFormat,
   REPORT_PERIOD_LABELS,
   REPORT_PERIODS,
   type ReportDto,
@@ -23,7 +26,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
+import { ReportPreview } from './report-preview';
 import { useReportActions } from './use-reports';
 
 const STEPS = ['Что', 'Когда', 'Куда', 'Проверка'] as const;
@@ -100,7 +105,7 @@ export function ReportBuilder({
       <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>{report ? 'Изменить отчёт' : 'Новый отчёт'}</SheetTitle>
-          <SheetDescription>Отправка в Telegram картинкой с подписью</SheetDescription>
+          <SheetDescription>Отправка в Telegram картинкой или PDF с подписью</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-5 px-4 pb-6">
           <ol className="flex gap-1" aria-label="Шаги">
@@ -168,6 +173,29 @@ export function ReportBuilder({
                   ))}
                 </select>
               </label>
+              <div className="flex flex-col gap-1 text-sm">
+                Формат
+                <ToggleGroup
+                  variant="segment"
+                  size="sm"
+                  value={[v.config.format]}
+                  onValueChange={(x: string[]) =>
+                    x[0] && set({ config: { ...v.config, format: x[0] as ReportFormat } })
+                  }
+                  aria-label="Формат отправки"
+                >
+                  {REPORT_FORMATS.map((f) => (
+                    <ToggleGroupItem key={f} value={f}>
+                      {REPORT_FORMAT_LABELS[f]}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                <span className="text-xs text-muted-foreground">
+                  {v.config.format === 'pdf'
+                    ? 'Файлом: удобно сохранить и переслать. Подпись — та же.'
+                    : 'Картинкой прямо в чате, с подписью.'}
+                </span>
+              </div>
               <fieldset className="flex flex-col gap-1 text-sm">
                 <legend className="mb-1">Блоки</legend>
                 {REPORT_BLOCKS.map((b) => (
@@ -299,24 +327,32 @@ export function ReportBuilder({
           )}
 
           {step === 3 && (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-              <dt className="text-muted-foreground">Название</dt>
-              <dd>{v.name}</dd>
-              <dt className="text-muted-foreground">Период</dt>
-              <dd>{REPORT_PERIOD_LABELS[v.config.period]}</dd>
-              <dt className="text-muted-foreground">Блоки</dt>
-              <dd>{v.config.blocks.map((b) => REPORT_BLOCK_LABELS[b]).join(', ')}</dd>
-              <dt className="text-muted-foreground">Когда</dt>
-              <dd>
-                {scheduleText({ ...v.schedule, times: timesText.split(/[,\s]+/).filter(Boolean) })}
-              </dd>
-              <dt className="text-muted-foreground">Куда</dt>
-              <dd>
-                {v.recipients.length
-                  ? `${v.recipients.length} получ.`
-                  : 'никуда — выберите на шаге 3'}
-              </dd>
-            </dl>
+            <div className="flex flex-col gap-4">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                <dt className="text-muted-foreground">Название</dt>
+                <dd>{v.name}</dd>
+                <dt className="text-muted-foreground">Период</dt>
+                <dd>{REPORT_PERIOD_LABELS[v.config.period]}</dd>
+                <dt className="text-muted-foreground">Блоки</dt>
+                <dd>{v.config.blocks.map((b) => REPORT_BLOCK_LABELS[b]).join(', ')}</dd>
+                <dt className="text-muted-foreground">Когда</dt>
+                <dd>
+                  {scheduleText({
+                    ...v.schedule,
+                    times: timesText.split(/[,\s]+/).filter(Boolean),
+                  })}
+                </dd>
+                <dt className="text-muted-foreground">Куда</dt>
+                <dd>
+                  {v.recipients.length
+                    ? `${v.recipients.length} получ.`
+                    : 'никуда — выберите на шаге 3'}
+                </dd>
+                <dt className="text-muted-foreground">Формат</dt>
+                <dd>{REPORT_FORMAT_LABELS[v.config.format]}</dd>
+              </dl>
+              {v.config.blocks.length > 0 && <ReportPreview name={v.name} config={v.config} />}
+            </div>
           )}
 
           <div className="flex justify-between gap-2">
@@ -333,7 +369,8 @@ export function ReportBuilder({
           </div>
           {step === 3 && (
             <p className="text-xs text-muted-foreground">
-              После сохранения проверьте картинку кнопкой «Отправить тест».
+              Цифры в предпросмотре — за период на текущий момент. После сохранения можно отправить
+              тест в группу.
             </p>
           )}
         </div>

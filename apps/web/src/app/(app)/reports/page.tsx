@@ -174,7 +174,8 @@ export default function ReportsPage() {
                 <div>
                   <CardTitle className="text-base">{r.name}</CardTitle>
                   <CardDescription>
-                    {scheduleText(r.schedule)} · получателей {r.recipients.length}
+                    {scheduleText(r.schedule)} · получателей {r.recipients.length} ·{' '}
+                    {r.config.format === 'pdf' ? 'PDF' : 'картинка'}
                   </CardDescription>
                 </div>
                 {!r.enabled && <Badge variant="outline">выключен</Badge>}
