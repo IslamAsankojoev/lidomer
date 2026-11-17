@@ -82,3 +82,9 @@ export const countingSettingsSchema = z.object({
 });
 export type CountingSettings = z.infer<typeof countingSettingsSchema>;
 export const DEFAULT_COUNTING: CountingSettings = countingSettingsSchema.parse({});
+
+/** Слово после числа: «1 лид», «3 лида», «5 лидов», «21 лид». */
+export function leadWord(n: number): 'лид' | 'лида' | 'лидов' {
+  const rule = new Intl.PluralRules('ru-RU').select(n);
+  return rule === 'one' ? 'лид' : rule === 'few' ? 'лида' : 'лидов';
+}

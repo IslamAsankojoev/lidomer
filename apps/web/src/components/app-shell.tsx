@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { NAV, navItemFor } from '@/components/nav';
-import { PeriodBar } from '@/components/period-bar';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { UserMenu } from '@/components/user-menu';
 import { useWorkspace } from '@/lib/workspace';
@@ -25,78 +24,102 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     if (v) period.set(k, v);
   }
   const suffix = period.size ? `?${period.toString()}` : '';
+  const items = NAV.filter((i) => !i.permission || can(workspace.role, i.permission));
+  const groups = [...new Set(items.map((i) => i.group))];
+  const activeHref = navItemFor(pathname)?.href;
   return (
-    <nav className="flex flex-col gap-1" aria-label="Разделы">
-      {NAV.filter((i) => !i.permission || can(workspace.role, i.permission)).map(
-        ({ href, label, icon: Icon }) => {
-          const active = navItemFor(pathname)?.href === href;
-          return (
-            <Link
-              key={href}
-              href={`${href}${suffix}`}
-              onClick={onNavigate}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                active
-                  ? 'bg-primary/10 font-medium text-primary'
-                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-              )}
-            >
-              <Icon className="size-4 text-primary" aria-hidden />
-              {label}
-            </Link>
-          );
-        },
-      )}
+    <nav className="flex flex-col gap-3" aria-label="Разделы">
+      {groups.map((g) => (
+        <div key={g} className="flex flex-col gap-0.5">
+          <div className="px-2.5 pb-1 text-xs font-medium text-muted-foreground">{g}</div>
+          {items
+            .filter((i) => i.group === g)
+            .map(({ href, label, icon: Icon }) => {
+              const active = activeHref === href;
+              return (
+                <Link
+                  key={href}
+                  href={`${href}${suffix}`}
+                  onClick={onNavigate}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors',
+                    active
+                      ? 'bg-sidebar-accent font-medium text-foreground'
+                      : 'text-foreground/80 hover:bg-sidebar-accent/60 hover:text-foreground',
+                  )}
+                >
+                  <Icon className="size-4 text-primary" aria-hidden />
+                  {label}
+                </Link>
+              );
+            })}
+        </div>
+      ))}
     </nav>
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+/** Название компании — шапка меню. */
+function Brand() {
   const { workspace } = useWorkspace();
+  return (
+    <div className="flex items-center gap-2 px-2.5 py-1">
+      <span className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
+        {workspace.name.slice(0, 1).toUpperCase()}
+      </span>
+      <span className="truncate font-semibold">{workspace.name}</span>
+    </div>
+  );
+}
+
+/** Низ меню: пользователь и тема. */
+function SidebarFooter() {
+  return (
+    <div className="mt-auto flex items-center gap-1">
+      <UserMenu variant="card" />
+      <ThemeToggle />
+    </div>
+  );
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const withPeriod = navItemFor(usePathname())?.period === true;
+  const { workspace } = useWorkspace();
 
   return (
-    <div className="flex min-h-dvh">
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-6 border-r bg-sidebar p-4 md:flex">
-        <div className="px-3 font-semibold">{workspace.name}</div>
+    // Три слоя: серый фон страницы → полупрозрачное плавающее меню → белые карточки.
+    <div className="flex min-h-dvh md:gap-2.5 md:p-2.5">
+      <aside className="sticky top-2.5 hidden h-[calc(100dvh-1.25rem)] w-56 shrink-0 flex-col gap-5 rounded-2xl border border-sidebar-border bg-sidebar p-2.5 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] backdrop-blur-xl md:flex">
+        <Brand />
         <NavLinks />
+        <SidebarFooter />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur">
-          {/* Та же ширина и отступы, что у <main>: шапка и контент выровнены на широких экранах. */}
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-2.5 md:px-6 md:py-3">
-            <div className="flex items-center gap-2">
-              <Sheet open={open} onOpenChange={setOpen}>
-                <SheetTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="md:hidden"
-                      aria-label="Открыть меню"
-                    >
-                      <Menu className="size-5" />
-                    </Button>
-                  }
-                />
-                <SheetContent side="left" className="w-72 p-4">
-                  <SheetTitle className="px-3">{workspace.name}</SheetTitle>
-                  <NavLinks onNavigate={() => setOpen(false)} />
-                </SheetContent>
-              </Sheet>
-              <span className="truncate font-semibold md:hidden">{workspace.name}</span>
-              <div className="ml-auto flex items-center gap-1">
-                <ThemeToggle />
-                <UserMenu />
-              </div>
-            </div>
-            {withPeriod && <PeriodBar />}
+        {/* Телефон: верхняя строка с меню. На компьютере всё это — в боковом меню. */}
+        <header className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/85 px-2 py-2 backdrop-blur md:hidden">
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger
+              render={
+                <Button variant="ghost" size="icon" aria-label="Открыть меню">
+                  <Menu className="size-5" />
+                </Button>
+              }
+            />
+            <SheetContent side="left" className="flex w-72 flex-col gap-5 p-3">
+              <SheetTitle className="sr-only">Меню</SheetTitle>
+              <Brand />
+              <NavLinks onNavigate={() => setOpen(false)} />
+              <SidebarFooter />
+            </SheetContent>
+          </Sheet>
+          <span className="truncate font-semibold">{workspace.name}</span>
+          <div className="ml-auto flex items-center gap-1">
+            <ThemeToggle />
+            <UserMenu />
           </div>
         </header>
-        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-5 md:gap-6 md:px-6 md:py-6">
+        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-5 md:gap-6 md:px-4 md:py-3">
           {children}
         </main>
       </div>

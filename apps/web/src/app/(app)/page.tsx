@@ -2,6 +2,7 @@
 
 import {
   change,
+  leadWord,
   type Counts,
   INTEGRATION_LABELS,
   INTEGRATION_STATUS_LABELS,
@@ -16,6 +17,7 @@ import { Info, TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
+import { PeriodBar } from '@/components/period-bar';
 import { Asks } from '@/components/overview/asks';
 import { DailyChart } from '@/components/overview/daily-chart';
 import { Funnel } from '@/components/overview/funnel';
@@ -116,7 +118,6 @@ function MetricTile({
 }) {
   const href = usePeriodHref();
   const value = t.value(current);
-  const delta = change(value, t.value(before));
   const shown =
     value === null ? null : (
       <>
@@ -130,29 +131,13 @@ function MetricTile({
         )}
       </>
     );
-  const good = delta !== null && delta !== 0 && t.better && delta > 0 === (t.better === 'up');
-  const bad = delta !== null && delta !== 0 && t.better && !good;
-  const Trend = delta !== null && delta < 0 ? TrendingDown : TrendingUp;
   return (
     <Card size="sm" className="h-full">
       <CardHeader className="flex flex-row items-start justify-between gap-2">
         <CardTitle className="text-xs leading-snug font-normal text-muted-foreground sm:text-sm">
           {t.label}
         </CardTitle>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                aria-label={`Как считается: ${t.label}`}
-                className="-m-1 shrink-0 p-1 text-muted-foreground hover:text-foreground"
-              >
-                <Info className="size-3.5" />
-              </button>
-            }
-          />
-          <TooltipContent className="max-w-72">{t.hint}</TooltipContent>
-        </Tooltip>
+        <Hint t={t} />
       </CardHeader>
       <CardContent className="mt-auto flex flex-col gap-0.5">
         {value === null ? (
@@ -168,27 +153,164 @@ function MetricTile({
         ) : (
           shown
         )}
-        {value !== null && (
-          <div
-            className={cn(
-              'flex items-center gap-1 text-xs text-muted-foreground',
-              good && 'text-success',
-              bad && 'text-destructive',
-            )}
-            title="К прошлому периоду той же длины"
-          >
-            {delta === null ? (
-              'к прошлому: —'
-            ) : (
-              <>
-                {delta !== 0 && <Trend className="size-3.5" aria-hidden />}
-                {`${delta > 0 ? '+' : ''}${Math.abs(delta) >= 10 ? Math.round(delta) : delta}% к прошлому`}
-              </>
-            )}
-          </div>
-        )}
+        <Delta t={t} current={current} before={before} />
       </CardContent>
     </Card>
+  );
+}
+
+const byMetric = (m: LeadMetric) => TILES.find((t) => t.metric === m)!;
+/** Главная цифра (крупно) и строка под ней; остальное — компактной сеткой ниже. */
+const HERO = byMetric('adLeads');
+const STRIP = [
+  byMetric('organicLeads'),
+  byMetric('directUnknownLeads'),
+  byMetric('otherLeads'),
+  byMetric('withPhone'),
+];
+const REST = TILES.filter((t) => t !== HERO && !STRIP.includes(t));
+
+/** Карточка «как в WARD»: крупная цифра с бейджем изменения, под ней четыре метрики через разделители. */
+function Hero({ current, before }: { current: Counts; before: Counts }) {
+  const href = usePeriodHref();
+  const value = HERO.value(current) ?? 0;
+  const prev = HERO.value(before);
+  const diff = prev === null ? null : value - prev;
+  const share = current.totalLeads ? Math.round((value / current.totalLeads) * 100) : null;
+  return (
+    <Card className="gap-0 py-0">
+      <div className="flex flex-col gap-2 p-4 sm:p-5">
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          {HERO.label}
+          <Hint t={HERO} />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <Link
+            href={href('/leads', { metric: 'adLeads' })}
+            aria-label={`${HERO.label}: показать лидов`}
+            className="flex items-baseline gap-2 rounded-md hover:underline"
+          >
+            <span className="text-5xl leading-none font-bold tracking-tight tabular-nums sm:text-6xl">
+              {int(value)}
+            </span>
+            <span className="text-xl font-semibold">{leadWord(value)}</span>
+          </Link>
+          {diff !== null && diff !== 0 && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                diff > 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive',
+              )}
+            >
+              {diff > 0 ? (
+                <TrendingUp className="size-3.5" aria-hidden />
+              ) : (
+                <TrendingDown className="size-3.5" aria-hidden />
+              )}
+              на {int(Math.abs(diff))} {diff > 0 ? 'больше' : 'меньше'}, чем в прошлый период
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Всего новых лидов за период: {int(current.totalLeads)}
+          {share !== null && ` · ${share}% с рекламы`}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 border-t sm:grid-cols-4">
+        {STRIP.map((t, i) => (
+          <StripStat key={t.label} t={t} current={current} before={before} index={i} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function Hint({ t }: { t: Tile }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`Как считается: ${t.label}`}
+            className="-m-1 shrink-0 p-1 text-muted-foreground hover:text-foreground"
+          >
+            <Info className="size-3.5" />
+          </button>
+        }
+      />
+      <TooltipContent className="max-w-72">{t.hint}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function Delta({ t, current, before }: { t: Tile; current: Counts; before: Counts }) {
+  const delta = change(t.value(current), t.value(before));
+  if (t.value(current) === null) return null;
+  const good = delta !== null && delta !== 0 && t.better && delta > 0 === (t.better === 'up');
+  const bad = delta !== null && delta !== 0 && t.better && !good;
+  const Trend = delta !== null && delta < 0 ? TrendingDown : TrendingUp;
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-1 text-xs text-muted-foreground',
+        good && 'text-success',
+        bad && 'text-destructive',
+      )}
+      title="К прошлому периоду той же длины"
+    >
+      {delta === null ? (
+        'к прошлому: —'
+      ) : (
+        <>
+          {delta !== 0 && <Trend className="size-3.5" aria-hidden />}
+          {`${delta > 0 ? '+' : ''}${Math.abs(delta) >= 10 ? Math.round(delta) : delta}% к прошлому`}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Ячейка строки под главной цифрой; разделители — рамки между ячейками. */
+function StripStat({
+  t,
+  current,
+  before,
+  index,
+}: {
+  t: Tile;
+  current: Counts;
+  before: Counts;
+  index: number;
+}) {
+  const href = usePeriodHref();
+  const value = t.value(current);
+  return (
+    <div
+      className={cn(
+        'flex min-w-0 flex-col gap-0.5 px-4 py-3 sm:px-5',
+        index % 2 === 1 && 'border-l',
+        index >= 2 && 'border-t sm:border-t-0',
+        index === 2 && 'sm:border-l',
+      )}
+    >
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <span className="truncate">{t.label}</span>
+        <Hint t={t} />
+      </div>
+      {value === null || !t.metric ? (
+        <div className="text-sm text-muted-foreground">нет данных</div>
+      ) : (
+        <Link
+          href={href('/leads', { metric: t.metric })}
+          aria-label={`${t.label}: показать лидов`}
+          className="w-fit text-xl font-semibold tabular-nums hover:underline"
+        >
+          {int(value)}
+        </Link>
+      )}
+      <Delta t={t} current={current} before={before} />
+    </div>
   );
 }
 
@@ -206,7 +328,11 @@ export default function OverviewPage() {
 
   return (
     <>
-      <PageHeader title="Обзор" description={`Дни считаются по поясу ${workspace.timezone}`} />
+      <PageHeader
+        title="Обзор"
+        description={`Дни считаются по поясу ${workspace.timezone}`}
+        actions={<PeriodBar />}
+      />
       <PeriodStrip />
       {q.isPending ? (
         <LoadingState rows={3} />
@@ -214,8 +340,9 @@ export default function OverviewPage() {
         <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 [&>:last-child:nth-child(odd)]:col-span-2 lg:[&>:last-child:nth-child(odd)]:col-span-1">
-            {TILES.map((t) => (
+          <Hero current={q.data.current} before={q.data.before} />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {REST.map((t) => (
               <MetricTile
                 key={t.label}
                 t={t}

@@ -2,7 +2,7 @@
 
 import { ROLE_LABELS } from '@lidomer/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, LogOut } from 'lucide-react';
+import { Check, ChevronsUpDown, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -18,10 +18,13 @@ import {
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { useWorkspace } from '@/lib/workspace';
 
-export function UserMenu() {
+/** `icon` — кружок в шапке телефона; `card` — карточка внизу бокового меню. */
+export function UserMenu({ variant = 'icon' }: { variant?: 'icon' | 'card' }) {
   const { workspace, workspaces, email, select } = useWorkspace();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const initial = (email ?? '?').slice(0, 1).toUpperCase();
 
   const signOut = async () => {
     await supabaseBrowser().auth.signOut();
@@ -34,19 +37,38 @@ export function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Меню пользователя"
-            className="rounded-full"
-          >
-            <Avatar className="size-8">
-              <AvatarFallback>{(email ?? '?').slice(0, 1).toUpperCase()}</AvatarFallback>
-            </Avatar>
-          </Button>
+          variant === 'card' ? (
+            <button
+              type="button"
+              aria-label="Меню пользователя"
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-sidebar-accent/60"
+            >
+              <Avatar className="size-7">
+                <AvatarFallback className="text-xs">{initial}</AvatarFallback>
+              </Avatar>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{email}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {ROLE_LABELS[workspace.role]}
+                </span>
+              </span>
+              <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            </button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Меню пользователя"
+              className="rounded-full"
+            >
+              <Avatar className="size-8">
+                <AvatarFallback>{initial}</AvatarFallback>
+              </Avatar>
+            </Button>
+          )
         }
       />
-      <DropdownMenuContent align="end" className="w-64">
+      <DropdownMenuContent align={variant === 'card' ? 'start' : 'end'} className="w-64">
         <DropdownMenuGroup>
           <DropdownMenuLabel>
             <div className="truncate">{email}</div>

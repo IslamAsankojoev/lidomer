@@ -18,6 +18,7 @@ import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs';
 import { PageHeader } from '@/components/page-header';
+import { PeriodBar } from '@/components/period-bar';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -77,7 +78,7 @@ function FilterSelect<T extends string>(props: {
       aria-label={props.label}
       value={props.value ?? ''}
       onChange={(e) => props.onChange((e.target.value || null) as T | null)}
-      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-44 dark:bg-input/30"
+      className="h-8 w-full min-w-0 rounded-lg border border-input bg-card px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-44 dark:bg-input/30"
     >
       <option value="">{props.label}: все</option>
       {props.options.map((o) => (
@@ -152,6 +153,7 @@ export default function LeadsPage() {
             ? `Из чего сложилось: «${METRIC_LABELS[f.metric]}» — ${q.data ? int(q.data.total) : '…'}`
             : 'Единый журнал: лид Ward со своей сделкой или сделка Bitrix24 без Ward'
         }
+        actions={<PeriodBar />}
       />
       {/* На телефоне — сетка 2×2 одинаковых полей, на широком экране — одна строка. */}
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
@@ -226,7 +228,7 @@ export default function LeadsPage() {
       ) : (
         <>
           {/* Телефон: список карточек вместо широкой таблицы, без прокрутки вбок. */}
-          <ul className="flex flex-col divide-y rounded-lg border sm:hidden">
+          <ul className="flex flex-col divide-y rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] sm:hidden">
             {q.data.items.map((l) => (
               <li key={l.id}>
                 <button
@@ -266,7 +268,7 @@ export default function LeadsPage() {
               </li>
             ))}
           </ul>
-          <div className="hidden overflow-x-auto rounded-lg border sm:block">
+          <div className="hidden overflow-x-auto rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] sm:block">
             <Table>
               <TableHeader>
                 <TableRow>

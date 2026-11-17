@@ -4,6 +4,7 @@ import {
   formatMoney,
   type ReportSnapshot,
   toMajor,
+  leadWord,
 } from '@lidomer/shared';
 import { CAPTION_LIMIT } from './telegram.client';
 
@@ -11,8 +12,7 @@ const int = (n: number) => new Intl.NumberFormat('ru-RU').format(n);
 
 /** «1 лид», «3 лида», «5 лидов», «21 лид». */
 export function leadsWord(n: number): string {
-  const rule = new Intl.PluralRules('ru-RU').select(n);
-  return `${int(n)} ${rule === 'one' ? 'лид' : rule === 'few' ? 'лида' : 'лидов'}`;
+  return `${int(n)} ${leadWord(n)}`;
 }
 const dayFmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 
