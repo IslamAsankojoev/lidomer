@@ -31,7 +31,7 @@ function StripCell({ preset, label, hint }: (typeof PRESETS)[number] & { hint?: 
         size="sm"
         className={cn(
           'h-full transition-colors hover:bg-accent/40',
-          active && 'bg-primary/5 ring-primary/60',
+          active && 'border-primary/50 bg-primary/5',
         )}
       >
         <CardContent className="flex flex-col gap-0.5">

@@ -15,7 +15,7 @@ export function formatPeriod({ from, to }: { from: string; to: string }): string
   return from === to ? fmt(from) : `${fmt(from)} — ${fmt(to)}`;
 }
 
-/** Панель периода. Значение живёт в URL. */
+/** Панель периода: сегмент и даты под ним. Стоит справа от заголовка страницы. Значение живёт в URL. */
 export function PeriodBar() {
   const { preset, range, setState } = usePeriod();
   // На телефоне кнопки периода прокручиваются в строку — выбранная всегда в поле зрения.
@@ -32,12 +32,9 @@ export function PeriodBar() {
   };
 
   return (
-    <div
-      ref={ref}
-      className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
-    >
+    <div ref={ref} className="flex min-w-0 flex-col gap-1.5 sm:items-end">
       <ToggleGroup
-        variant="outline"
+        variant="segment"
         size="sm"
         value={[preset]}
         onValueChange={(v: string[]) => {
@@ -45,7 +42,8 @@ export function PeriodBar() {
           if (next) choose(next);
         }}
         aria-label="Период"
-        className="-mx-4 w-[calc(100%+2rem)] scroll-px-4 flex-nowrap overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:px-0"
+        // На телефоне сегмент прокручивается в строку, выбранный всегда в поле зрения.
+        className="max-w-full flex-nowrap overflow-x-auto [scrollbar-width:none]"
       >
         {PERIOD_PRESETS.map((p) => (
           <ToggleGroupItem key={p} value={p}>

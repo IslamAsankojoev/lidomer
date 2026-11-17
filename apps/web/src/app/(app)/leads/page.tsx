@@ -18,6 +18,7 @@ import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs';
 import { PageHeader } from '@/components/page-header';
+import { PeriodBar } from '@/components/period-bar';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -152,6 +153,7 @@ export default function LeadsPage() {
             ? `Из чего сложилось: «${METRIC_LABELS[f.metric]}» — ${q.data ? int(q.data.total) : '…'}`
             : 'Единый журнал: лид Ward со своей сделкой или сделка Bitrix24 без Ward'
         }
+        actions={<PeriodBar />}
       />
       {/* На телефоне — сетка 2×2 одинаковых полей, на широком экране — одна строка. */}
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">

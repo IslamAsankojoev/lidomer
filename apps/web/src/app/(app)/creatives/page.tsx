@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { parseAsStringLiteral, useQueryStates } from 'nuqs';
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/page-header';
+import { PeriodBar } from '@/components/period-bar';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -218,15 +219,15 @@ export default function CreativesPage() {
       <PageHeader
         title="Креативы"
         description="Лиды и продажи по объявлениям; расход и цена — из Meta Ads"
+        actions={<PeriodBar />}
       />
       {/* Два независимых переключателя: подписаны и разнесены, кнопки внутри группы слиты в сегмент. */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Группировка</span>
           <ToggleGroup
-            variant="outline"
+            variant="segment"
             size="sm"
-            spacing={0}
             value={[v.group]}
             onValueChange={(x: string[]) => x[0] && void setV({ group: x[0] as 'ad' | 'campaign' })}
             aria-label="Группировка"
@@ -238,9 +239,8 @@ export default function CreativesPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Вид</span>
           <ToggleGroup
-            variant="outline"
+            variant="segment"
             size="sm"
-            spacing={0}
             value={[v.view]}
             onValueChange={(x: string[]) =>
               x[0] && void setV({ view: x[0] as 'table' | 'gallery' })
