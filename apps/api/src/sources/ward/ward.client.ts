@@ -104,7 +104,7 @@ export class WardClient {
             body && typeof body === 'object' && 'error' in body
               ? String(body.error)
               : `HTTP ${res.status}`;
-          throw new HttpError(res.status, `Ward: ${msg}`, body);
+          throw new HttpError(res.status, `WARD: ${msg}`, body);
         }
         return body;
       },

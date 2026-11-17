@@ -92,7 +92,8 @@ export class IntegrationsService {
     }
     return {
       type,
-      name: row.name,
+      // Название — всегда текущая подпись источника (в базе могло остаться старое написание).
+      name: INTEGRATION_LABELS[type],
       status: row.status,
       lastSyncAt: row.lastSyncAt?.toISOString() ?? null,
       lastError: row.lastError,

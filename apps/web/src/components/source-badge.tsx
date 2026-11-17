@@ -6,7 +6,7 @@ export type BrandSource = 'ward' | 'bitrix24';
 
 /** `darkSrc` — вариант для тёмной темы (у Ward левая половина W белая и на светлом фоне не видна). */
 const BRANDS: Record<BrandSource, { label: string; src: string; darkSrc?: string }> = {
-  ward: { label: 'Ward', src: '/brands/ward.png', darkSrc: '/brands/ward-dark.png' },
+  ward: { label: 'WARD', src: '/brands/ward.png', darkSrc: '/brands/ward-dark.png' },
   bitrix24: { label: 'Bitrix24', src: '/brands/bitrix24.png' },
 };
 
@@ -54,7 +54,12 @@ export function SourceBadge({
       )}
     >
       <SourceLogo source={source} />
-      {children ?? BRANDS[source].label}
+      {children ?? (
+        // WARD — заглавными и чуть жирнее, как на сайте бренда.
+        <span className={source === 'ward' ? 'font-semibold tracking-wide' : undefined}>
+          {BRANDS[source].label}
+        </span>
+      )}
     </span>
   );
 }

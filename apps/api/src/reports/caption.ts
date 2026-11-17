@@ -61,7 +61,7 @@ export function buildCaption(s: ReportSnapshot): { caption: string; rest: string
   if (s.blocks.includes('funnel') && s.funnel) {
     const f = s.funnel;
     lines.push(
-      `Ward: переписок ${int(f.conversations)} → лидов ${int(f.wardLeads)} → сделок ${int(f.withDeal)} → продаж ${int(f.sales)}`,
+      `WARD: переписок ${int(f.conversations)} → лидов ${int(f.wardLeads)} → сделок ${int(f.withDeal)} → продаж ${int(f.sales)}`,
     );
   }
   if (s.blocks.includes('creatives') && s.creatives.length) {

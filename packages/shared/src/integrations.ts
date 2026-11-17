@@ -7,7 +7,7 @@ export type IntegrationType = z.infer<typeof integrationTypeSchema>;
 
 export const INTEGRATION_LABELS: Record<IntegrationType, string> = {
   meta_ads: 'Meta Ads',
-  ward: 'Ward',
+  ward: 'WARD',
   bitrix24: 'Bitrix24',
   telegram: 'Telegram',
 };

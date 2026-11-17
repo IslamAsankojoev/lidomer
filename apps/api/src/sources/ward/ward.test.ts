@@ -128,7 +128,7 @@ describe('WardClient', () => {
   });
 });
 
-describe('расписание Ward', () => {
+describe('расписание WARD', () => {
   const adapter = createWardAdapter();
   const now = new Date('2026-11-16T19:30:00Z');
 

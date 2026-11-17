@@ -48,7 +48,7 @@ const TILES: Tile[] = [
   {
     label: 'Лиды с рекламы · факт',
     better: 'up',
-    hint: 'Лиды Ward с объявлением + сделки Bitrix24 с рекламными UTM или из рекламных источников. Повторы не входят.',
+    hint: 'Лиды WARD с объявлением + сделки Bitrix24 с рекламными UTM или из рекламных источников. Повторы не входят.',
     metric: 'adLeads',
     value: (c) => c.adLeads,
   },
@@ -68,13 +68,13 @@ const TILES: Tile[] = [
   {
     label: 'Органика',
     better: 'up',
-    hint: 'Комментарии под постами без рекламы (Ward).',
+    hint: 'Комментарии под постами без рекламы (WARD).',
     metric: 'organicLeads',
     value: (c) => c.organicLeads,
   },
   {
     label: 'Direct, источник не определён',
-    hint: 'Ward отдаёт Direct без пометки рекламы — пока не относим ни к рекламе, ни к органике.',
+    hint: 'WARD отдаёт Direct без пометки рекламы — пока не относим ни к рекламе, ни к органике.',
     metric: 'directUnknownLeads',
     value: (c) => c.directUnknownLeads,
   },

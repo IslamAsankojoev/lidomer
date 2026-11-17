@@ -26,7 +26,7 @@ export type LeadFlag = z.infer<typeof leadFlagSchema>;
 export const LEAD_FLAG_LABELS: Record<LeadFlag, string> = {
   no_deal: 'Лид не дошёл до Bitrix24',
   no_phone: 'Без телефона',
-  ad_label_without_lead: 'Сделка с рекламной меткой без лида Ward',
+  ad_label_without_lead: 'Сделка с рекламной меткой без лида WARD',
   ad_not_connected: 'Объявление из неподключённого кабинета',
   source_unparsed: 'Источник не разобран',
 };
