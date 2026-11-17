@@ -77,7 +77,7 @@ function FilterSelect<T extends string>(props: {
       aria-label={props.label}
       value={props.value ?? ''}
       onChange={(e) => props.onChange((e.target.value || null) as T | null)}
-      className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-44 dark:bg-input/30"
     >
       <option value="">{props.label}: все</option>
       {props.options.map((o) => (
@@ -153,7 +153,8 @@ export default function LeadsPage() {
             : 'Единый журнал: лид Ward со своей сделкой или сделка Bitrix24 без Ward'
         }
       />
-      <div className="flex flex-wrap items-center gap-2">
+      {/* На телефоне — сетка 2×2 одинаковых полей, на широком экране — одна строка. */}
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
         <FilterSelect
           label="Цифра"
           value={f.metric}
@@ -193,7 +194,7 @@ export default function LeadsPage() {
             Сбросить
           </Button>
         )}
-        <div className="ml-auto flex gap-2">
+        <div className="col-span-2 flex gap-2 sm:ml-auto">
           <Button
             variant="outline"
             size="sm"
@@ -224,7 +225,48 @@ export default function LeadsPage() {
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border">
+          {/* Телефон: список карточек вместо широкой таблицы, без прокрутки вбок. */}
+          <ul className="flex flex-col divide-y rounded-lg border sm:hidden">
+            {q.data.items.map((l) => (
+              <li key={l.id}>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(l.id)}
+                  className="flex w-full flex-col gap-1 px-3 py-2.5 text-left text-sm active:bg-muted/60"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="min-w-0 truncate font-medium">{l.name ?? '—'}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {format(parseISO(l.createdAt), 'd MMM, HH:mm', { locale: ru })}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="min-w-0 truncate">
+                      {LEAD_CHANNEL_LABELS[l.channel]} · {l.origin === 'ward' ? 'Ward' : 'Bitrix24'}
+                      {l.isRepeat && ' · повтор'}
+                    </span>
+                    <span className="shrink-0">
+                      {l.dealId ? `№${l.dealId} · ${DEAL_STATUS_LABELS[l.status]}` : 'нет сделки'}
+                    </span>
+                  </div>
+                  {l.flags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {l.flags.map((fl) => (
+                        <Badge
+                          key={fl}
+                          variant={fl === 'no_deal' ? 'destructive' : 'secondary'}
+                          className="text-[11px]"
+                        >
+                          {LEAD_FLAG_LABELS[fl]}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-lg border sm:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -242,7 +284,7 @@ export default function LeadsPage() {
                     <TableCell className="whitespace-nowrap text-sm">
                       {format(parseISO(l.createdAt), 'd MMM, HH:mm', { locale: ru })}
                     </TableCell>
-                    <TableCell className="max-w-48">
+                    <TableCell className="max-w-44">
                       <div className="truncate text-sm">{l.name ?? '—'}</div>
                       <div className="truncate text-xs text-muted-foreground">
                         {[l.phone, l.instagram && !sameAsName(l) && `@${l.instagram}`]
@@ -261,7 +303,7 @@ export default function LeadsPage() {
                         {l.origin === 'ward' ? 'Ward' : 'Bitrix24'}
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-64 text-sm">
+                    <TableCell className="max-w-52 text-sm">
                       <div className="truncate">
                         {l.adName ?? (l.channel === 'ad' ? adLabel(l.adKey) : '—')}
                       </div>

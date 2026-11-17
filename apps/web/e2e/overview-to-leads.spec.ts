@@ -28,5 +28,9 @@ test('вход → обзор → клик по цифре → лиды этой
   await expect(page.getByText(/Из чего сложилось: «Лиды с рекламы» — [\d\s ]+$/)).toBeVisible();
   const caption = await page.getByText(/Из чего сложилось/).innerText();
   expect(Number(caption.replace(/^.*—/, '').replace(/\D/g, ''))).toBe(value);
-  if (value > 0) await expect(page.getByRole('row').nth(1)).toBeVisible();
+  // Первый лид виден: строка таблицы на компьютере или карточка списка на телефоне.
+  if (value > 0)
+    await expect(
+      page.getByRole('row').nth(1).or(page.getByRole('listitem')).filter({ visible: true }).first(),
+    ).toBeVisible();
 });

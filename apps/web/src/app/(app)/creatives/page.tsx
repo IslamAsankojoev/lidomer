@@ -15,7 +15,7 @@ import {
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowUpDown, Image as ImageIcon } from 'lucide-react';
+import { ArrowUpDown, Image as ImageIcon, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import Link from 'next/link';
 import { parseAsStringLiteral, useQueryStates } from 'nuqs';
 import { useMemo, useState } from 'react';
@@ -219,30 +219,46 @@ export default function CreativesPage() {
         title="Креативы"
         description="Лиды и продажи по объявлениям; расход и цена — из Meta Ads"
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          value={[v.group]}
-          onValueChange={(x: string[]) => x[0] && void setV({ group: x[0] as 'ad' | 'campaign' })}
-          aria-label="Группировка"
-        >
-          <ToggleGroupItem value="ad">По объявлениям</ToggleGroupItem>
-          <ToggleGroupItem value="campaign">По кампаниям</ToggleGroupItem>
-        </ToggleGroup>
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          value={[v.view]}
-          onValueChange={(x: string[]) => x[0] && void setV({ view: x[0] as 'table' | 'gallery' })}
-          aria-label="Вид"
-        >
-          <ToggleGroupItem value="table">Таблица</ToggleGroupItem>
-          <ToggleGroupItem value="gallery">Галерея</ToggleGroupItem>
-        </ToggleGroup>
+      {/* Два независимых переключателя: подписаны и разнесены, кнопки внутри группы слиты в сегмент. */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Группировка</span>
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            spacing={0}
+            value={[v.group]}
+            onValueChange={(x: string[]) => x[0] && void setV({ group: x[0] as 'ad' | 'campaign' })}
+            aria-label="Группировка"
+          >
+            <ToggleGroupItem value="ad">По объявлениям</ToggleGroupItem>
+            <ToggleGroupItem value="campaign">По кампаниям</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Вид</span>
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            spacing={0}
+            value={[v.view]}
+            onValueChange={(x: string[]) =>
+              x[0] && void setV({ view: x[0] as 'table' | 'gallery' })
+            }
+            aria-label="Вид"
+          >
+            <ToggleGroupItem value="table">
+              <TableIcon aria-hidden /> Таблица
+            </ToggleGroupItem>
+            <ToggleGroupItem value="gallery">
+              <LayoutGrid aria-hidden /> Галерея
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <label className="ml-auto flex items-center gap-2 text-sm">
           <input
             type="checkbox"
+            className="size-4 accent-primary"
             checked={showPhone}
             onChange={(e) => setShowPhone(e.target.checked)}
           />

@@ -259,12 +259,15 @@ export default function ReportsPage() {
           ) : !runs.data?.runs.length ? (
             <p className="text-sm text-muted-foreground">Отправок ещё не было.</p>
           ) : (
-            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
               {runs.data.runs.map((run) => {
                 const rep = reports.data?.reports.find((r) => r.id === run.reportId);
                 return (
-                  <li key={run.id} className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
-                    <div className="flex items-center justify-between gap-2">
+                  <li
+                    key={run.id}
+                    className="flex min-w-0 flex-col gap-2 rounded-lg border p-2.5 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
                       <span className="truncate font-medium">{rep?.name ?? 'Отчёт'}</span>
                       <Badge variant={STATUS[run.status]?.variant ?? 'outline'}>
                         {run.isTest ? 'тест · ' : ''}
@@ -275,12 +278,18 @@ export default function ReportsPage() {
                       {when(run.sentAt ?? run.scheduledFor)}
                     </div>
                     {run.imageUrl && (
-                      <a href={run.imageUrl} target="_blank" rel="noreferrer">
+                      <a
+                        href={run.imageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Открыть картинку целиком"
+                        className="block overflow-hidden rounded-md border transition-opacity hover:opacity-90"
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={run.imageUrl}
                           alt={`Картинка отчёта «${rep?.name ?? ''}»`}
-                          className="w-full rounded-md border"
+                          className="aspect-[4/5] w-full object-cover object-top"
                           loading="lazy"
                         />
                       </a>
