@@ -4,8 +4,9 @@ import { cn } from '@/lib/utils';
 /** Источники с логотипом (файлы — public/brands). */
 export type BrandSource = 'ward' | 'bitrix24';
 
-const BRANDS: Record<BrandSource, { label: string; src: string }> = {
-  ward: { label: 'Ward', src: '/brands/ward.png' },
+/** `darkSrc` — вариант для тёмной темы (у Ward левая половина W белая и на светлом фоне не видна). */
+const BRANDS: Record<BrandSource, { label: string; src: string; darkSrc?: string }> = {
+  ward: { label: 'Ward', src: '/brands/ward.png', darkSrc: '/brands/ward-dark.png' },
   bitrix24: { label: 'Bitrix24', src: '/brands/bitrix24.png' },
 };
 
@@ -15,15 +16,17 @@ export function isBrandSource(type: string): type is BrandSource {
 
 /** Логотип источника (прозрачный фон). Декоративный: рядом всегда есть название. */
 export function SourceLogo({ source, className }: { source: BrandSource; className?: string }) {
+  const { src, darkSrc } = BRANDS[source];
+  const cls = cn('size-4 shrink-0 object-contain', className);
+  /* eslint-disable @next/next/no-img-element -- маленькая статичная иконка, оптимизация не нужна */
+  if (!darkSrc) return <img src={src} alt="" aria-hidden className={cls} />;
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- маленькая статичная иконка, оптимизация не нужна
-    <img
-      src={BRANDS[source].src}
-      alt=""
-      aria-hidden
-      className={cn('size-4 shrink-0 object-contain', className)}
-    />
+    <>
+      <img src={src} alt="" aria-hidden className={cn(cls, 'dark:hidden')} />
+      <img src={darkSrc} alt="" aria-hidden className={cn(cls, 'hidden dark:block')} />
+    </>
   );
+  /* eslint-enable @next/next/no-img-element */
 }
 
 /**
