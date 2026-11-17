@@ -23,9 +23,9 @@ export default function IntegrationsPage() {
 function IntegrationsList({ canManage }: { canManage: boolean }) {
   const q = useIntegrations();
   return (
-    <>
+    // Одна колонка по порядку: Meta → Ward → Bitrix24, по центру и шириной как у документа.
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 md:gap-6">
       <PageHeader
-        className="max-w-3xl"
         title="Интеграции"
         description="Источники данных. Ключи хранятся зашифрованными и после сохранения видны только маской."
       />
@@ -34,13 +34,12 @@ function IntegrationsList({ canManage }: { canManage: boolean }) {
       ) : q.isError ? (
         <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
       ) : (
-        // Одна колонка по порядку: Meta → Ward → Bitrix24, ширина как у документа.
-        <div className="flex w-full max-w-3xl flex-col gap-4">
+        <div className="flex flex-col gap-4">
           {q.data.integrations.map((s) => (
             <IntegrationCard key={s.type} s={s} canManage={canManage} />
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 }

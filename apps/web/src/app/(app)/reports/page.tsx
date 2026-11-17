@@ -49,7 +49,8 @@ export default function ReportsPage() {
   const target = targets.find((t) => t.key === testTarget) ?? targets[0];
 
   return (
-    <>
+    // Колонка по центру, как «Интеграции» и «Настройки».
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 md:gap-6">
       <PageHeader
         title="Отчёты"
         description="Отправляются в Telegram по расписанию картинкой с подписью"
@@ -166,7 +167,7 @@ export default function ReportsPage() {
           description="Создайте «Итоги дня» — каждое утро в 09:00 за вчера."
         />
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="flex flex-col gap-3">
           {reports.data.reports.map((r) => (
             <Card key={r.id}>
               <CardHeader className="flex flex-row items-start justify-between gap-2">
@@ -259,7 +260,7 @@ export default function ReportsPage() {
           ) : !runs.data?.runs.length ? (
             <p className="text-sm text-muted-foreground">Отправок ещё не было.</p>
           ) : (
-            <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {runs.data.runs.map((run) => {
                 const rep = reports.data?.reports.find((r) => r.id === run.reportId);
                 return (
@@ -267,15 +268,17 @@ export default function ReportsPage() {
                     key={run.id}
                     className="flex min-w-0 flex-col gap-2 rounded-lg border p-2.5 text-sm"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-1.5">
-                      <span className="truncate font-medium">{rep?.name ?? 'Отчёт'}</span>
-                      <Badge variant={STATUS[run.status]?.variant ?? 'outline'}>
+                    {/* Название, затем дата и статус одной строкой — миниатюры стоят на одной высоте. */}
+                    <div className="truncate font-medium">{rep?.name ?? 'Отчёт'}</div>
+                    <div className="flex items-center justify-between gap-1.5 text-xs text-muted-foreground">
+                      <span className="truncate">{when(run.sentAt ?? run.scheduledFor)}</span>
+                      <Badge
+                        variant={STATUS[run.status]?.variant ?? 'outline'}
+                        className="shrink-0"
+                      >
                         {run.isTest ? 'тест · ' : ''}
                         {STATUS[run.status]?.label ?? run.status}
                       </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {when(run.sentAt ?? run.scheduledFor)}
                     </div>
                     {run.imageUrl && (
                       <a
@@ -321,6 +324,6 @@ export default function ReportsPage() {
           chats={chatList}
         />
       )}
-    </>
+    </div>
   );
 }

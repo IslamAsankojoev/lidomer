@@ -17,7 +17,8 @@ test('вход → обзор → клик по цифре → лиды этой
   await page.getByLabel('Пароль').fill(password!);
   await page.getByRole('button', { name: 'Войти' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Обзор' })).toBeVisible();
+  // После входа грузятся профиль и компания — на холодном dev-сервере это дольше 5 с.
+  await expect(page.getByRole('heading', { name: 'Обзор' })).toBeVisible({ timeout: 15_000 });
   const tile = page.getByRole('link', { name: 'Лиды с рекламы · факт: показать лидов' });
   await expect(tile).toBeVisible();
   const value = Number((await tile.innerText()).split('\n')[0]!.replace(/\D/g, ''));

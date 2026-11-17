@@ -33,18 +33,31 @@ export class Storage {
     if (!res.ok) throw new HttpError(res.status, `Storage: не удалось сохранить ${path}`);
   }
 
-  async signedUrl(bucket: string, path: string, expiresIn = 3600): Promise<string> {
-    const res = await this.fetchFn(
-      new URL(`/storage/v1/object/sign/${bucket}/${path}`, this.supabaseUrl),
-      {
-        method: 'POST',
-        headers: this.headers({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ expiresIn }),
-      },
-    );
-    const body = (await res.json().catch(() => null)) as { signedURL?: string } | null;
-    if (!res.ok || !body?.signedURL)
-      throw new HttpError(res.status, `Storage: нет ссылки на ${path}`);
-    return new URL(`/storage/v1${body.signedURL}`, this.supabaseUrl).toString();
+  /**
+   * Подписанные ссылки на несколько файлов одним запросом. Параллельные запросы по одному
+   * на каждый файл локально висели по 20–60 с (новые соединения), пакетный — один.
+   * Файлы, которые Storage не подписал, в ответе отсутствуют.
+   */
+  async signedUrls(
+    bucket: string,
+    paths: string[],
+    expiresIn = 3600,
+  ): Promise<Map<string, string>> {
+    const urls = new Map<string, string>();
+    const unique = [...new Set(paths)];
+    if (!unique.length) return urls;
+    const res = await this.fetchFn(new URL(`/storage/v1/object/sign/${bucket}`, this.supabaseUrl), {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ expiresIn, paths: unique }),
+    });
+    const body = (await res.json().catch(() => null)) as
+      { path?: string; signedURL?: string | null }[] | null;
+    if (!res.ok || !Array.isArray(body))
+      throw new HttpError(res.status, `Storage: нет ссылок в ${bucket}`);
+    for (const item of body)
+      if (item.path && item.signedURL)
+        urls.set(item.path, new URL(`/storage/v1${item.signedURL}`, this.supabaseUrl).toString());
+    return urls;
   }
 }
