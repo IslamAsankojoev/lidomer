@@ -9,6 +9,8 @@ const parsed = z
     // Facebook Login for Business: без них кнопка входа скрыта, остаётся вставка токена.
     NEXT_PUBLIC_META_APP_ID: z.string().optional(),
     NEXT_PUBLIC_META_LOGIN_CONFIG_ID: z.string().optional(),
+    // Sentry (решение 0008): без DSN ошибки никуда не уходят.
+    NEXT_PUBLIC_SENTRY_DSN: z.url().optional(),
   })
   .safeParse({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -16,6 +18,7 @@ const parsed = z
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_META_APP_ID: process.env.NEXT_PUBLIC_META_APP_ID || undefined,
     NEXT_PUBLIC_META_LOGIN_CONFIG_ID: process.env.NEXT_PUBLIC_META_LOGIN_CONFIG_ID || undefined,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || undefined,
   });
 
 if (!parsed.success) {

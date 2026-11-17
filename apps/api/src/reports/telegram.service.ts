@@ -165,6 +165,18 @@ export class TelegramService {
       .where(eq(workspaces.id, workspaceId));
   }
 
+  /** Сообщение о работе всего сервиса — в группы алертов всех компаний. */
+  async systemAlert(text: string): Promise<void> {
+    if (!this.configured) return;
+    const rows = await this.db.select({ settings: workspaces.settings }).from(workspaces);
+    const chats = new Set(
+      rows
+        .map((r) => (r.settings as { alertChatId?: string } | null)?.alertChatId)
+        .filter((id): id is string => !!id),
+    );
+    for (const chatId of chats) await this.safeSend(chatId, text, null);
+  }
+
   /** Алерт: интеграция в статусе «Ошибка» или «Нужно переподключить». Без персональных данных. */
   async integrationAlert(
     workspaceId: string,

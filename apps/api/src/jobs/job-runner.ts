@@ -12,6 +12,7 @@ import { ReportsService } from '../reports/reports.service';
 import { TelegramService } from '../reports/telegram.service';
 import { ReconciliationService } from '../reconciliation/reconciliation.service';
 import { JobQueue, jobMessageSchema } from './queue';
+import { Watchdog } from './watchdog';
 
 /** Сколько раз повторять задачу, прежде чем убрать её в архив. */
 const MAX_ATTEMPTS = 5;
@@ -47,10 +48,12 @@ export class JobRunner {
     @Inject(FxService) private readonly fx: FxService,
     @Inject(ReportsService) private readonly reports: ReportsService,
     @Inject(TelegramService) private readonly telegram: TelegramService,
+    @Inject(Watchdog) private readonly watchdog: Watchdog,
   ) {}
 
   async tick(budgetMs: number, now = new Date()): Promise<TickReport> {
     const deadline = Date.now() + budgetMs;
+    await this.watchdog.beat(now);
     const report: TickReport = {
       scheduled: await this.schedule(now),
       processed: 0,

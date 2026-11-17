@@ -343,3 +343,15 @@ export const jobLocks = pgTable(
   },
   (t) => [primaryKey({ columns: [t.key] })],
 ).enableRLS();
+
+/**
+ * Пульс фоновой работы: каждый `tick` пишет время, сторож (`/jobs/watchdog`) сверяет его с порогом.
+ * Справочная таблица без `workspace_id`: расписание одно на весь сервис.
+ */
+export const heartbeats = pgTable('heartbeats', {
+  key: text('key').primaryKey(),
+  /** Последний пульс; null — пульса ещё не было (строку создал сторож). */
+  at: timestamp('at', { withTimezone: true }),
+  /** Когда сторож сообщил о пропаже пульса; null — сообщать не о чем. */
+  alertedAt: timestamp('alerted_at', { withTimezone: true }),
+}).enableRLS();

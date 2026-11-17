@@ -71,6 +71,13 @@
       "when": 1794859538550,
       "tag": "0009_reports_bucket",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794905971464,
+      "tag": "0010_heartbeats",
+      "breakpoints": true
     }
   ]
 }
