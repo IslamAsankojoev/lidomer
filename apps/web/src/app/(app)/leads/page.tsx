@@ -78,7 +78,7 @@ function FilterSelect<T extends string>(props: {
       aria-label={props.label}
       value={props.value ?? ''}
       onChange={(e) => props.onChange((e.target.value || null) as T | null)}
-      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-44 dark:bg-input/30"
+      className="h-8 w-full min-w-0 rounded-lg border border-input bg-card px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-44 dark:bg-input/30"
     >
       <option value="">{props.label}: все</option>
       {props.options.map((o) => (
@@ -228,7 +228,7 @@ export default function LeadsPage() {
       ) : (
         <>
           {/* Телефон: список карточек вместо широкой таблицы, без прокрутки вбок. */}
-          <ul className="flex flex-col divide-y rounded-lg border sm:hidden">
+          <ul className="flex flex-col divide-y rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] sm:hidden">
             {q.data.items.map((l) => (
               <li key={l.id}>
                 <button
@@ -268,7 +268,7 @@ export default function LeadsPage() {
               </li>
             ))}
           </ul>
-          <div className="hidden overflow-x-auto rounded-lg border sm:block">
+          <div className="hidden overflow-x-auto rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] sm:block">
             <Table>
               <TableHeader>
                 <TableRow>

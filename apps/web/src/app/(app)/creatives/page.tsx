@@ -302,7 +302,7 @@ export default function CreativesPage() {
           ))}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <div className="overflow-x-auto rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((hg) => (
