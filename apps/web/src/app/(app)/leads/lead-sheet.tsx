@@ -29,6 +29,7 @@ import {
 import { useApi } from '@/lib/api';
 import { money } from '@/lib/format';
 import { useWorkspace } from '@/lib/workspace';
+import { SourceBadge, SourceLogo } from '@/components/source-badge';
 
 const FACT_LABELS: Record<string, string> = {
   type: 'Тип',
@@ -89,10 +90,15 @@ export function LeadSheet({ id, onClose }: { id: string | null; onClose: () => v
       <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>{l?.name ?? (l?.instagram ? `@${l.instagram}` : 'Лид')}</SheetTitle>
-          <SheetDescription>
-            {l
-              ? `${LEAD_CHANNEL_LABELS[l.channel]} · ${l.origin === 'ward' ? 'Ward' : 'Bitrix24'}`
-              : ' '}
+          <SheetDescription className="flex items-center gap-2">
+            {l ? (
+              <>
+                {LEAD_CHANNEL_LABELS[l.channel]}
+                <SourceBadge source={l.origin === 'ward' ? 'ward' : 'bitrix24'} variant="pill" />
+              </>
+            ) : (
+              ' '
+            )}
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-5 px-4 pb-6">
@@ -153,7 +159,10 @@ export function LeadSheet({ id, onClose }: { id: string | null; onClose: () => v
 
               {q.data.facts && Object.keys(q.data.facts).length > 0 && (
                 <section>
-                  <h3 className="mb-2 text-sm font-medium">Анкета Ward</h3>
+                  <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                    <SourceLogo source="ward" />
+                    Анкета Ward
+                  </h3>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                     {Object.entries(q.data.facts).map(([k, v]) => (
                       <div key={k} className="contents">

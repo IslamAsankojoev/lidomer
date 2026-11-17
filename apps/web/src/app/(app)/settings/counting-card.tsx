@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useApi } from '@/lib/api';
 import { int } from '@/lib/format';
 import { useWorkspace } from '@/lib/workspace';
+import { SourceLogo } from '@/components/source-badge';
 
 type Kind = 'auto' | 'ad' | 'excluded';
 
@@ -100,7 +101,10 @@ export function CountingCard() {
             </label>
 
             <div className="flex flex-col gap-2">
-              <div className="text-sm font-medium">Источники сделок Bitrix24</div>
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <SourceLogo source="bitrix24" />
+                Источники сделок Bitrix24
+              </div>
               <p className="text-xs text-muted-foreground">
                 «Авто»: реклама, если у сделки рекламные UTM (ig/fb), иначе — другой канал.
                 «Реклама» — всегда лиды с рекламы. «Не считать» — например, импорт старой базы.

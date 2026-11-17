@@ -5,6 +5,7 @@ import { ErrorState, LoadingState } from '@/components/state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { int } from '@/lib/format';
 import { useWorkspaceQuery } from './use-workspace-query';
+import { SourceBadge, SourceLogo } from '@/components/source-badge';
 
 /**
  * Воронка Ward → Bitrix24. Каждый шаг — часть предыдущего: переписка → лид → сделка → продажа.
@@ -15,17 +16,19 @@ export function Funnel({ from, to }: { from: string; to: string }) {
   const d = q.data;
   const steps = d
     ? [
-        { label: 'Переписки в Ward', value: d.conversations },
-        { label: 'Лиды Ward', value: d.wardLeads },
-        { label: 'Сделка в Bitrix24', value: d.withDeal },
-        { label: 'Продажа', value: d.sales },
+        { label: 'Переписки в Ward', source: 'ward' as const, value: d.conversations },
+        { label: 'Лиды Ward', source: 'ward' as const, value: d.wardLeads },
+        { label: 'Сделка в Bitrix24', source: 'bitrix24' as const, value: d.withDeal },
+        { label: 'Продажа', source: 'bitrix24' as const, value: d.sales },
       ]
     : [];
   const max = Math.max(1, ...steps.map((s) => s.value));
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Воронка Ward → Bitrix24</CardTitle>
+        <CardTitle className="flex flex-wrap items-center gap-x-1.5">
+          Воронка <SourceBadge source="ward" /> → <SourceBadge source="bitrix24" />
+        </CardTitle>
         <CardDescription>Обращения из Instagram за период и что с ними стало</CardDescription>
       </CardHeader>
       <CardContent>
@@ -41,7 +44,10 @@ export function Funnel({ from, to }: { from: string; to: string }) {
                 return (
                   <li key={s.label} className="flex flex-col gap-1">
                     <div className="flex justify-between text-sm">
-                      <span>{s.label}</span>
+                      <span className="flex items-center gap-1.5">
+                        <SourceLogo source={s.source} />
+                        {s.label}
+                      </span>
                       <span className="tabular-nums">
                         {int(s.value)}
                         {conv !== null && (
