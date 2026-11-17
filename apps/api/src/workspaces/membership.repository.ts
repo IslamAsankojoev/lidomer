@@ -20,7 +20,10 @@ export class MembershipRepository {
     return row?.role ?? null;
   }
 
-  async listWorkspacesOf(userId: string): Promise<WorkspaceSummary[]> {
+  /** Компании пользователя; `logoPath` превращает в ссылку контроллер. */
+  async listWorkspacesOf(
+    userId: string,
+  ): Promise<(Omit<WorkspaceSummary, 'logoUrl'> & { logoPath: string | null })[]> {
     return this.db
       .select({
         id: workspaces.id,
@@ -28,6 +31,7 @@ export class MembershipRepository {
         timezone: workspaces.timezone,
         displayCurrency: workspaces.displayCurrency,
         role: members.role,
+        logoPath: workspaces.logoPath,
       })
       .from(members)
       .innerJoin(workspaces, eq(workspaces.id, members.workspaceId))
@@ -80,6 +84,18 @@ export class MembershipRepository {
       .where(and(eq(members.workspaceId, workspaceId), eq(members.userId, userId)))
       .returning({ id: members.id });
     return rows.length > 0;
+  }
+
+  async logoPath(workspaceId: string): Promise<string | null> {
+    const [row] = await this.db
+      .select({ logoPath: workspaces.logoPath })
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId));
+    return row?.logoPath ?? null;
+  }
+
+  async setLogoPath(workspaceId: string, logoPath: string | null): Promise<void> {
+    await this.db.update(workspaces).set({ logoPath }).where(eq(workspaces.id, workspaceId));
   }
 
   async audit(entry: AuditLogEntry): Promise<void> {

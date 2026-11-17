@@ -7,6 +7,11 @@ export const workspaceSummarySchema = z.object({
   timezone: z.string(),
   displayCurrency: z.string().length(3),
   role: roleSchema,
+  /**
+   * Публичная ссылка на логотип; null — логотипа нет, показываем первую букву названия.
+   * default — пока api без логотипов (превью web против боевого api) не ломает вход.
+   */
+  logoUrl: z.url().nullable().default(null),
 });
 export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;
 
@@ -32,6 +37,13 @@ export const inviteMemberRequestSchema = z.object({
   role: roleSchema,
 });
 export type InviteMemberRequest = z.infer<typeof inviteMemberRequestSchema>;
+
+/** Логотип компании: файл в base64. Тип определяет api по содержимому, не по расширению. */
+export const LOGO_MAX_BYTES = 512 * 1024;
+export const uploadLogoRequestSchema = z.object({
+  data: z.base64().max(Math.ceil((LOGO_MAX_BYTES * 4) / 3) + 4, 'Логотип больше 512 КБ'),
+});
+export type UploadLogoRequest = z.infer<typeof uploadLogoRequestSchema>;
 
 export const apiErrorSchema = z.object({
   statusCode: z.number(),
