@@ -10,19 +10,28 @@ import {
   Param,
   Patch,
   Post,
+  Put,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   type InviteMemberRequest,
   inviteMemberRequestSchema,
   type MeResponse,
   type MembersResponse,
+  LOGO_MAX_BYTES,
   type Role,
   roleSchema,
+  type UploadLogoRequest,
+  uploadLogoRequestSchema,
 } from '@lidomer/shared';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { CurrentUser, CurrentWorkspace, RequirePermission } from '../auth/decorators';
 import type { AuthUser, WorkspaceContext } from '../common/request';
+import { detectImage } from '../common/image';
+import { LOGOS_BUCKET, Storage } from '../common/storage';
 import { ZodPipe } from '../common/zod.pipe';
+import { ENV, type Env } from '../config/env';
 import { MembershipRepository } from './membership.repository';
 import { SupabaseAdmin } from './supabase-admin';
 
@@ -34,12 +43,77 @@ export class WorkspacesController {
   constructor(
     @Inject(MembershipRepository) private readonly membership: MembershipRepository,
     @Inject(SupabaseAdmin) private readonly supabase: SupabaseAdmin,
-  ) {}
+    @Inject(ENV) env: Env,
+  ) {
+    this.storage = new Storage(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  }
+
+  private readonly storage: Storage;
 
   /** Текущий пользователь и компании, в которых он участник. */
   @Get('me')
   async me(@CurrentUser() user: AuthUser): Promise<MeResponse> {
-    return { user, workspaces: await this.membership.listWorkspacesOf(user.id) };
+    const list = await this.membership.listWorkspacesOf(user.id);
+    return {
+      user,
+      workspaces: list.map(({ logoPath, ...w }) => ({
+        ...w,
+        logoUrl: logoPath ? this.storage.publicUrl(LOGOS_BUCKET, logoPath) : null,
+      })),
+    };
+  }
+
+  /**
+   * Логотип компании (меню кабинета). PNG, JPEG или WebP до 512 КБ — тип по содержимому файла.
+   * Каждая загрузка — новый файл (без кэша старой картинки), прежний удаляется.
+   */
+  @Put('workspace/logo')
+  @HttpCode(204)
+  @RequirePermission('settings:manage')
+  async uploadLogo(
+    @CurrentUser() user: AuthUser,
+    @CurrentWorkspace() ws: WorkspaceContext,
+    @Body(new ZodPipe(uploadLogoRequestSchema)) body: UploadLogoRequest,
+  ): Promise<void> {
+    const file = Buffer.from(body.data, 'base64');
+    if (file.length > LOGO_MAX_BYTES)
+      throw new UnprocessableEntityException('Логотип больше 512 КБ');
+    const kind = detectImage(file);
+    if (!kind) throw new UnprocessableEntityException('Нужна картинка PNG, JPEG или WebP');
+    const path = `${ws.workspaceId}/${randomUUID()}.${kind.ext}`;
+    await this.storage.upload(
+      LOGOS_BUCKET,
+      path,
+      file.buffer.slice(file.byteOffset, file.byteOffset + file.length) as ArrayBuffer,
+      kind.contentType,
+    );
+    await this.replaceLogo(user, ws.workspaceId, path);
+  }
+
+  @Delete('workspace/logo')
+  @HttpCode(204)
+  @RequirePermission('settings:manage')
+  async removeLogo(
+    @CurrentUser() user: AuthUser,
+    @CurrentWorkspace() ws: WorkspaceContext,
+  ): Promise<void> {
+    await this.replaceLogo(user, ws.workspaceId, null);
+  }
+
+  private async replaceLogo(user: AuthUser, workspaceId: string, path: string | null) {
+    const before = await this.membership.logoPath(workspaceId);
+    await this.membership.setLogoPath(workspaceId, path);
+    await this.membership.audit({
+      workspaceId,
+      actorUserId: user.id,
+      action: 'workspace.logo',
+      entityType: 'workspace',
+      entityId: workspaceId,
+      before: { logoPath: before },
+      after: { logoPath: path },
+    });
+    // Старый файл больше не нужен; не удалился — не беда, ссылка на него уже не отдаётся.
+    if (before) await this.storage.remove(LOGOS_BUCKET, [before]).catch(() => undefined);
   }
 
   @Get('members')

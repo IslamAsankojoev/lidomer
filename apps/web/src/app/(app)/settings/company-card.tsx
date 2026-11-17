@@ -11,6 +11,7 @@ import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useApi } from '@/lib/api';
 import { useWorkspace } from '@/lib/workspace';
+import { LogoField } from './logo-field';
 
 const TIMEZONES = ['Asia/Bishkek', 'Asia/Almaty', 'Asia/Tashkent', 'Europe/Moscow', 'UTC'];
 
@@ -47,6 +48,7 @@ export function CompanyCard() {
         <CardTitle>Компания</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <LogoField canEdit={canEdit} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="ws-name">Название</FieldLabel>
