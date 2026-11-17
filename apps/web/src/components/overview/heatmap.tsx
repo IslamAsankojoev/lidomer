@@ -6,19 +6,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useWorkspaceQuery } from './use-workspace-query';
 
 const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const HEAT = [
+  'var(--muted)',
+  'var(--heat-1)',
+  'var(--heat-2)',
+  'var(--heat-3)',
+  'var(--heat-4)',
+  'var(--heat-5)',
+];
 
 /** «Когда пишут»: новые лиды по дню недели и часу. */
 export function Heatmap({ from, to }: { from: string; to: string }) {
   const q = useWorkspaceQuery(heatmapResponseSchema, `/insights/heatmap?from=${from}&to=${to}`);
-  // Шкала по корню с потолком на 95-м перцентиле: один всплеск (например, импорт) не гасит остальные часы.
+  // Пять ступеней по квантилям ненулевых часов: всплеск (например, импорт) не гасит остальные,
+  // а соседние ступени заметно отличаются по светлоте.
   const values = q.data
     ? q.data.cells
         .flat()
         .filter((n) => n > 0)
         .sort((a, b) => a - b)
     : [];
-  const cap = Math.max(1, values[Math.floor(values.length * 0.95)] ?? 1);
-  const shade = (n: number) => 20 + Math.sqrt(Math.min(n, cap) / cap) * 80;
+  const thresholds = [0.2, 0.4, 0.6, 0.8].map((p) => values[Math.floor(values.length * p)] ?? 0);
+  const level = (n: number) => (n ? 1 + thresholds.filter((t) => n > t).length : 0);
   return (
     <Card>
       <CardHeader>
@@ -33,7 +42,7 @@ export function Heatmap({ from, to }: { from: string; to: string }) {
         ) : (
           <div className="overflow-x-auto">
             <table
-              className="w-full border-separate border-spacing-0.5 text-[10px]"
+              className="w-full border-separate border-spacing-[3px] text-[10px]"
               aria-label="Лиды по дню и часу"
             >
               <thead>
@@ -55,17 +64,23 @@ export function Heatmap({ from, to }: { from: string; to: string }) {
                         key={h}
                         title={`${DAYS[d]}, ${h}:00–${h + 1}:00 — ${n} лидов`}
                         className="h-5 min-w-3 rounded-sm"
-                        style={{
-                          background: n
-                            ? `color-mix(in oklch, var(--chart-1) ${shade(n)}%, transparent)`
-                            : 'var(--muted)',
-                        }}
+                        style={{ background: HEAT[level(n)] }}
                       />
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
+            <div
+              className="mt-3 flex items-center justify-end gap-1 text-[10px] text-muted-foreground"
+              aria-hidden
+            >
+              меньше
+              {HEAT.map((c) => (
+                <span key={c} className="size-3 rounded-sm" style={{ background: c }} />
+              ))}
+              больше
+            </div>
           </div>
         )}
       </CardContent>

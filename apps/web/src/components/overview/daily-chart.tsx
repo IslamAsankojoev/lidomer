@@ -3,7 +3,7 @@
 import { costPerLead, dailyResponseSchema } from '@lidomer/shared';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ErrorState, LoadingState } from '@/components/state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -57,8 +57,16 @@ export function DailyChart({
         ) : (
           <>
             <ChartContainer config={config} className="aspect-auto h-64 w-full">
-              <BarChart data={points} margin={{ left: -16, right: 8 }}>
-                <CartesianGrid vertical={false} />
+              <AreaChart data={points} margin={{ left: -16, right: 8, top: 8 }}>
+                <defs>
+                  {(Object.keys(config) as (keyof typeof config)[]).map((k) => (
+                    <linearGradient key={k} id={`fill-${k}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={`var(--color-${k})`} stopOpacity={0.75} />
+                      <stop offset="95%" stopColor={`var(--color-${k})`} stopOpacity={0.08} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="day"
                   tickFormatter={dayLabel}
@@ -68,25 +76,41 @@ export function DailyChart({
                 />
                 <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={40} />
                 <ChartTooltip
-                  content={<ChartTooltipContent labelFormatter={(v) => dayLabel(String(v))} />}
+                  cursor={{ strokeDasharray: '3 3' }}
+                  content={
+                    <ChartTooltipContent
+                      indicator="dot"
+                      labelFormatter={(v) => dayLabel(String(v))}
+                    />
+                  }
                 />
                 <ChartLegend content={<ChartLegendContent />} />
-                {(Object.keys(config) as (keyof typeof config)[]).map((k, i, arr) => (
-                  <Bar
+                {/* Снизу — реклама, сверху — остальные каналы; кривые плавные (monotone не выходит за данные). */}
+                {(Object.keys(config) as (keyof typeof config)[]).map((k) => (
+                  <Area
                     key={k}
                     dataKey={k}
+                    type="monotone"
                     stackId="leads"
-                    fill={`var(--color-${k})`}
-                    radius={i === arr.length - 1 ? [4, 4, 0, 0] : 0}
+                    stroke={`var(--color-${k})`}
+                    strokeWidth={2}
+                    fill={`url(#fill-${k})`}
+                    activeDot={{ r: 4 }}
                   />
                 ))}
-              </BarChart>
+              </AreaChart>
             </ChartContainer>
             <div>
               <div className="mb-1 text-sm text-muted-foreground">Цена за лид · факт</div>
               {hasSpend ? (
                 <ChartContainer config={cplConfig} className="aspect-auto h-28 w-full">
-                  <LineChart data={cpl} margin={{ left: -16, right: 8 }}>
+                  <AreaChart data={cpl} margin={{ left: -16, right: 8, top: 4 }}>
+                    <defs>
+                      <linearGradient id="fill-cpl" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-cpl)" stopOpacity={0.5} />
+                        <stop offset="95%" stopColor="var(--color-cpl)" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
                     <XAxis
                       dataKey="day"
                       tickFormatter={dayLabel}
@@ -108,14 +132,15 @@ export function DailyChart({
                         />
                       }
                     />
-                    <Line
+                    <Area
                       dataKey="cpl"
+                      type="monotone"
                       stroke="var(--color-cpl)"
                       strokeWidth={2}
-                      dot={false}
+                      fill="url(#fill-cpl)"
                       connectNulls={false}
                     />
-                  </LineChart>
+                  </AreaChart>
                 </ChartContainer>
               ) : (
                 <div className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">

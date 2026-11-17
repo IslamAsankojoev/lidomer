@@ -37,7 +37,11 @@ export function PeriodBar() {
         className="flex-wrap"
       >
         {PERIOD_PRESETS.map((p) => (
-          <ToggleGroupItem key={p} value={p}>
+          <ToggleGroupItem
+            key={p}
+            value={p}
+            className="data-[pressed]:border-primary data-[pressed]:bg-primary data-[pressed]:text-primary-foreground"
+          >
             {PERIOD_LABELS[p]}
           </ToggleGroupItem>
         ))}
