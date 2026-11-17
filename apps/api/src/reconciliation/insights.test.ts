@@ -41,7 +41,7 @@ const item = (p: Partial<LeadItem>): LeadItem => ({
 });
 
 describe('хронология лида', () => {
-  it('Ward → сделка → продажа, по времени', () => {
+  it('WARD → сделка → продажа, по времени', () => {
     const t = buildTimeline(
       item({}),
       {
@@ -63,7 +63,7 @@ describe('хронология лида', () => {
       [],
     );
     expect(t.map((e) => [e.kind, e.title])).toEqual([
-      ['ward_lead', 'Написал в Instagram — лид Ward'],
+      ['ward_lead', 'Написал в Instagram — лид WARD'],
       ['deal_created', 'Сделка №1001 в Bitrix24'],
       ['deal_closed', 'Продажа'],
     ]);

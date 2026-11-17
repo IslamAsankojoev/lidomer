@@ -13,15 +13,15 @@ const FIELDS: Partial<
 > = {
   ward: {
     key: 'apiKey',
-    label: 'Ключ Ward',
+    label: 'Ключ WARD',
     placeholder: 'wdr_…',
-    hint: 'Ward → Подключения → API для отчётов → Создать ключ. После сохранения ключ виден только маской.',
+    hint: 'WARD → Подключения → API для отчётов → Создать ключ. После сохранения ключ виден только маской.',
   },
   bitrix24: {
     key: 'webhookUrl',
     label: 'Адрес входящего вебхука',
     placeholder: 'https://портал.bitrix24.kz/rest/1/…/',
-    hint: 'Bitrix24 → Разработчикам → Другое → Входящий вебхук, право CRM. Отдельный, не тот, что у Ward.',
+    hint: 'Bitrix24 → Разработчикам → Другое → Входящий вебхук, право CRM. Отдельный, не тот, что у WARD.',
   },
   meta_ads: {
     key: 'accessToken',

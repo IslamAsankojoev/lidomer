@@ -29,7 +29,7 @@ export const REPORT_BLOCK_LABELS: Record<ReportBlock, string> = {
   kpis: 'Ключевые цифры',
   channels: 'Каналы лидов',
   creatives: 'Лучшие креативы',
-  funnel: 'Воронка Ward → Bitrix24',
+  funnel: 'Воронка WARD → Bitrix24',
 };
 
 export const reportConfigSchema = z.object({

@@ -108,7 +108,9 @@ export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canMa
         <div className="min-w-0 flex-1">
           {/* Статус рядом с названием — описание не сжимается в узкую колонку. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <CardTitle>{s.name}</CardTitle>
+            <CardTitle className={s.type === 'ward' ? 'font-semibold tracking-wide' : undefined}>
+              {s.name}
+            </CardTitle>
             <StatusBadge s={s} />
           </div>
           <CardDescription>{DESCRIPTIONS[s.type]}</CardDescription>

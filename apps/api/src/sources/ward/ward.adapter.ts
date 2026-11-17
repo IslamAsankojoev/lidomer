@@ -16,7 +16,7 @@ export const wardSecretsSchema = z.object({
   apiKey: z
     .string()
     .trim()
-    .regex(/^wdr_\S{8,}$/, 'Ключ Ward начинается с wdr_'),
+    .regex(/^wdr_\S{8,}$/, 'Ключ WARD начинается с wdr_'),
 });
 export type WardSecrets = z.infer<typeof wardSecretsSchema>;
 
@@ -67,7 +67,7 @@ export function createWardAdapter(clientOpts: WardClientOptions = {}): SourceAda
     },
 
     async run(job, secrets, ctx) {
-      if (job.kind !== 'ward:day') throw new Error(`Ward: неизвестная задача ${job.kind}`);
+      if (job.kind !== 'ward:day') throw new Error(`WARD: неизвестная задача ${job.kind}`);
       const day = z.string().parse(job.params.day);
       const api = client(secrets, ctx.recordRaw);
 

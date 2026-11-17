@@ -16,8 +16,8 @@ export function Funnel({ from, to }: { from: string; to: string }) {
   const d = q.data;
   const steps = d
     ? [
-        { label: 'Переписки в Ward', source: 'ward' as const, value: d.conversations },
-        { label: 'Лиды Ward', source: 'ward' as const, value: d.wardLeads },
+        { label: 'Переписки в WARD', source: 'ward' as const, value: d.conversations },
+        { label: 'Лиды WARD', source: 'ward' as const, value: d.wardLeads },
         { label: 'Сделка в Bitrix24', source: 'bitrix24' as const, value: d.withDeal },
         { label: 'Продажа', source: 'bitrix24' as const, value: d.sales },
       ]

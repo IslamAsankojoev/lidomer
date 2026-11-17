@@ -52,7 +52,7 @@ const input = (p: Partial<ReconcileInput>): ReconcileInput => ({
 });
 
 describe('сверка', () => {
-  it('лид Ward и его сделка — одна строка со статусом и суммой сделки', () => {
+  it('лид WARD и его сделка — одна строка со статусом и суммой сделки', () => {
     const rows = reconcile(
       input({
         wardLeads: [ward(1)],
@@ -69,7 +69,7 @@ describe('сверка', () => {
     });
   });
 
-  it('лид без сделки — флаг и статус Ward', () => {
+  it('лид без сделки — флаг и статус WARD', () => {
     const [r] = reconcile(
       input({ wardLeads: [ward(2, { crmEntity: 'lead', crmId: null, status: 'new' })] }),
     );
@@ -157,7 +157,7 @@ describe('сверка', () => {
     expect(rows.map((r) => [r.dealId, r.channel])).toEqual([['6001', 'ad']]);
   });
 
-  it('сделка Ward с рекламной меткой без лида в выгрузке — флаг', () => {
+  it('сделка WARD с рекламной меткой без лида в выгрузке — флаг', () => {
     const [r] = reconcile(
       input({
         deals: [
@@ -178,7 +178,7 @@ describe('сверка', () => {
     expect(r!.day).toBe('2026-11-16');
   });
 
-  it('повтор: тот же телефон в Ward и в лид-форме в окне 30 дней; после окна — новый лид', () => {
+  it('повтор: тот же телефон в WARD и в лид-форме в окне 30 дней; после окна — новый лид', () => {
     const rows = reconcile(
       input({
         wardLeads: [
