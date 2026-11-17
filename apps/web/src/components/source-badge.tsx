@@ -30,7 +30,7 @@ export function SourceLogo({ source, className }: { source: BrandSource; classNa
 }
 
 /**
- * Логотип + название источника. `pill` — бейдж с рамкой (таблицы, списки),
+ * Логотип + название источника. `pill` — бейдж с заливкой (таблицы, списки),
  * `plain` — просто значок перед текстом (заголовки, подписи).
  */
 export function SourceBadge({
@@ -49,7 +49,7 @@ export function SourceBadge({
       className={cn(
         'inline-flex items-center gap-1.5 align-middle',
         variant === 'pill' &&
-          'h-5 rounded-full border bg-card py-0.5 pr-2 pl-1.5 text-xs font-medium text-foreground',
+          'h-5 rounded-full bg-muted py-0.5 pr-2 pl-1.5 text-xs font-medium text-foreground',
         className,
       )}
     >
