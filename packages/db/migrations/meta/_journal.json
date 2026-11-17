@@ -78,6 +78,13 @@
       "when": 1794905971464,
       "tag": "0010_heartbeats",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794909820792,
+      "tag": "0011_logos_bucket",
+      "breakpoints": true
     }
   ]
 }

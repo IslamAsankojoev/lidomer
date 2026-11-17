@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/s
 import { NAV, navItemFor } from '@/components/nav';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { UserMenu } from '@/components/user-menu';
+import { WorkspaceLogo } from '@/components/workspace-logo';
 import { useWorkspace } from '@/lib/workspace';
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -65,9 +66,7 @@ function Brand() {
   const { workspace } = useWorkspace();
   return (
     <div className="flex items-center gap-2 px-2.5 py-1">
-      <span className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
-        {workspace.name.slice(0, 1).toUpperCase()}
-      </span>
+      <WorkspaceLogo name={workspace.name} logoUrl={workspace.logoUrl} className="size-7" />
       <span className="truncate font-semibold">{workspace.name}</span>
     </div>
   );
@@ -113,6 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <SidebarFooter />
             </SheetContent>
           </Sheet>
+          <WorkspaceLogo name={workspace.name} logoUrl={workspace.logoUrl} />
           <span className="truncate font-semibold">{workspace.name}</span>
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />

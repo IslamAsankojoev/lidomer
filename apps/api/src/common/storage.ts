@@ -1,6 +1,7 @@
 import { HttpError } from './http';
 
 export const PREVIEWS_BUCKET = 'previews';
+export const LOGOS_BUCKET = 'logos';
 
 /** Узкий клиент Supabase Storage: загрузка файла в закрытый бакет и подписанная ссылка. */
 export class Storage {
@@ -59,5 +60,20 @@ export class Storage {
       if (item.path && item.signedURL)
         urls.set(item.path, new URL(`/storage/v1${item.signedURL}`, this.supabaseUrl).toString());
     return urls;
+  }
+
+  /** Ссылка на файл в публичном бакете (логотипы). */
+  publicUrl(bucket: string, path: string): string {
+    return new URL(`/storage/v1/object/public/${bucket}/${path}`, this.supabaseUrl).toString();
+  }
+
+  async remove(bucket: string, paths: string[]): Promise<void> {
+    if (!paths.length) return;
+    const res = await this.fetchFn(new URL(`/storage/v1/object/${bucket}`, this.supabaseUrl), {
+      method: 'DELETE',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ prefixes: paths }),
+    });
+    if (!res.ok) throw new HttpError(res.status, `Storage: не удалось удалить файлы из ${bucket}`);
   }
 }
