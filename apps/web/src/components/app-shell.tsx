@@ -39,11 +39,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                 active
-                  ? 'bg-accent font-medium text-accent-foreground'
+                  ? 'bg-primary/10 font-medium text-primary'
                   : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
               )}
             >
-              <Icon className="size-4" aria-hidden />
+              <Icon className="size-4 text-primary" aria-hidden />
               {label}
             </Link>
           );

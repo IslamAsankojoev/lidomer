@@ -26,9 +26,11 @@ function StatusBadge({ s }: { s: IntegrationSummary }) {
   const variant =
     s.status === 'error' || s.status === 'reauth_required'
       ? 'destructive'
-      : s.status === 'connected' || s.status === 'syncing'
+      : s.pendingJobs > 0 || s.status === 'syncing'
         ? 'secondary'
-        : 'outline';
+        : s.status === 'connected'
+          ? 'success'
+          : 'outline';
   return (
     <Badge variant={variant} className="gap-1">
       {s.pendingJobs > 0 && <Loader2 className="size-3 animate-spin" aria-hidden />}
