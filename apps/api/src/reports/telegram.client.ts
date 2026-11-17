@@ -130,6 +130,22 @@ export class TelegramClient {
     form.set('photo', new Blob([png], { type: 'image/png' }), 'report.png');
     return this.call('sendPhoto', form);
   }
+
+  /** Файл документом (PDF отчёта) с подписью. */
+  sendDocument(
+    chatId: string,
+    file: Uint8Array,
+    filename: string,
+    caption: string,
+    threadId?: string | null,
+  ) {
+    const form = new FormData();
+    form.set('chat_id', chatId);
+    if (threadId) form.set('message_thread_id', threadId);
+    form.set('caption', caption.slice(0, CAPTION_LIMIT));
+    form.set('document', new Blob([new Uint8Array(file)], { type: 'application/pdf' }), filename);
+    return this.call('sendDocument', form);
+  }
 }
 
 /** Обновление вебхука — только нужные поля. */

@@ -13,7 +13,14 @@ import {
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
-import { type ReportInput, reportInputSchema, type ReportSnapshot } from '@lidomer/shared';
+import {
+  type ReportInput,
+  reportInputSchema,
+  type ReportPreviewRequest,
+  reportPreviewRequestSchema,
+  type ReportPreviewResponse,
+  type ReportSnapshot,
+} from '@lidomer/shared';
 import { z } from 'zod';
 import { CurrentUser, CurrentWorkspace, Public, RequirePermission } from '../auth/decorators';
 import type { AuthUser, WorkspaceContext } from '../common/request';
@@ -39,6 +46,17 @@ export class ReportsController {
   @RequirePermission('reports:read')
   async list(@CurrentWorkspace() ws: WorkspaceContext) {
     return { reports: await this.reports.list(ws.workspaceId) };
+  }
+
+  /** Предпросмотр в конструкторе: картинка рисуется в браузере по этому снимку, ничего не отправляется. */
+  @Post('reports/preview')
+  @HttpCode(200)
+  @RequirePermission('reports:read')
+  preview(
+    @CurrentWorkspace() ws: WorkspaceContext,
+    @Body(new ZodPipe(reportPreviewRequestSchema)) body: ReportPreviewRequest,
+  ): Promise<ReportPreviewResponse> {
+    return this.reports.preview(ws.workspaceId, body);
   }
 
   @Post('reports')

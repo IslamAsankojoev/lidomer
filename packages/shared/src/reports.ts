@@ -32,9 +32,20 @@ export const REPORT_BLOCK_LABELS: Record<ReportBlock, string> = {
   funnel: 'Воронка WARD → Bitrix24',
 };
 
+/** Как отправлять: картинкой (фото в чате) или PDF-файлом (документ). */
+export const REPORT_FORMATS = ['png', 'pdf'] as const;
+export const reportFormatSchema = z.enum(REPORT_FORMATS);
+export type ReportFormat = z.infer<typeof reportFormatSchema>;
+export const REPORT_FORMAT_LABELS: Record<ReportFormat, string> = {
+  png: 'Картинка PNG',
+  pdf: 'Файл PDF',
+};
+
 export const reportConfigSchema = z.object({
   period: reportPeriodSchema,
   blocks: z.array(reportBlockSchema).min(1),
+  // У отчётов, сохранённых до появления формата, поля нет — это картинка.
+  format: reportFormatSchema.default('png'),
 });
 export type ReportConfig = z.infer<typeof reportConfigSchema>;
 
@@ -58,27 +69,27 @@ export const TEMPLATE_DEFAULTS: Record<
 > = {
   day_summary: {
     name: 'Итоги дня',
-    config: { period: 'yesterday', blocks: ['kpis', 'channels', 'creatives'] },
+    config: { format: 'png', period: 'yesterday', blocks: ['kpis', 'channels', 'creatives'] },
     schedule: { times: ['09:00'], weekdays: [], monthDays: [] },
   },
   day_pulse: {
     name: 'Пульс дня',
-    config: { period: 'today', blocks: ['kpis', 'channels'] },
+    config: { format: 'png', period: 'today', blocks: ['kpis', 'channels'] },
     schedule: { times: ['13:00', '18:00'], weekdays: [], monthDays: [] },
   },
   week: {
     name: 'Неделя',
-    config: { period: 'prev_week', blocks: ['kpis', 'channels', 'creatives', 'funnel'] },
+    config: { format: 'png', period: 'prev_week', blocks: ['kpis', 'channels', 'creatives', 'funnel'] },
     schedule: { times: ['10:00'], weekdays: [1], monthDays: [] },
   },
   month: {
     name: 'Месяц',
-    config: { period: 'prev_month', blocks: ['kpis', 'channels', 'creatives', 'funnel'] },
+    config: { format: 'png', period: 'prev_month', blocks: ['kpis', 'channels', 'creatives', 'funnel'] },
     schedule: { times: ['10:00'], weekdays: [], monthDays: [1] },
   },
   custom: {
     name: 'Свой отчёт',
-    config: { period: 'yesterday', blocks: ['kpis'] },
+    config: { format: 'png', period: 'yesterday', blocks: ['kpis'] },
     schedule: { times: ['09:00'], weekdays: [], monthDays: [] },
   },
 };
