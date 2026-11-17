@@ -13,7 +13,7 @@ export function isBrandSource(type: string): type is BrandSource {
   return type in BRANDS;
 }
 
-/** Логотип источника. Декоративный: рядом всегда есть название. */
+/** Логотип источника (прозрачный фон). Декоративный: рядом всегда есть название. */
 export function SourceLogo({ source, className }: { source: BrandSource; className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- маленькая статичная иконка, оптимизация не нужна
@@ -21,7 +21,7 @@ export function SourceLogo({ source, className }: { source: BrandSource; classNa
       src={BRANDS[source].src}
       alt=""
       aria-hidden
-      className={cn('size-4 shrink-0 rounded-[22%] object-cover', className)}
+      className={cn('size-4 shrink-0 object-contain', className)}
     />
   );
 }
@@ -46,14 +46,11 @@ export function SourceBadge({
       className={cn(
         'inline-flex items-center gap-1.5 align-middle',
         variant === 'pill' &&
-          'h-5 rounded-full border bg-card py-0.5 pr-2 pl-0.5 text-xs font-medium text-foreground',
+          'h-5 rounded-full border bg-card py-0.5 pr-2 pl-1.5 text-xs font-medium text-foreground',
         className,
       )}
     >
-      <SourceLogo
-        source={source}
-        className={variant === 'pill' ? 'size-4 rounded-full' : undefined}
-      />
+      <SourceLogo source={source} />
       {children ?? BRANDS[source].label}
     </span>
   );

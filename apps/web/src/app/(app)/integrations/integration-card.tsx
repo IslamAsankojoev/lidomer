@@ -99,7 +99,7 @@ export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canMa
     <Card className="gap-0 pb-0">
       <CardHeader className="flex flex-row items-start gap-3 pb-4">
         {isBrandSource(s.type) ? (
-          <SourceLogo source={s.type} className="size-9 rounded-[10px] border" />
+          <SourceLogo source={s.type} className="size-9" />
         ) : (
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Icon className="size-4.5" aria-hidden />
