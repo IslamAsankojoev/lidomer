@@ -16,7 +16,7 @@ export function WorkspaceLogo({
       <img
         src={logoUrl}
         alt={`Логотип ${name}`}
-        className={cn('size-6 shrink-0 rounded-md bg-card object-contain', className)}
+        className={cn('size-6 shrink-0 rounded-md object-contain', className)}
       />
     );
   return (

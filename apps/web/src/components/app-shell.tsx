@@ -69,7 +69,7 @@ function Brand() {
   return (
     <div className="flex items-center gap-2 px-2.5 py-1">
       <WorkspaceLogo name={workspace.name} logoUrl={workspace.logoUrl} className="size-7" />
-      <span className="truncate font-semibold">{workspace.name}</span>
+      <span className="truncate font-black">{workspace.name}</span>
     </div>
   );
 }
@@ -169,7 +169,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetContent>
           </Sheet>
           <WorkspaceLogo name={workspace.name} logoUrl={workspace.logoUrl} />
-          <span className="truncate font-semibold">{workspace.name}</span>
+          <span className="truncate font-black">{workspace.name}</span>
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
             <UserMenu />
