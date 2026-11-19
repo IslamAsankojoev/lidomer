@@ -1,8 +1,8 @@
 'use client';
 
 import { Suspense, type ReactNode } from 'react';
-import { AppShell } from '@/components/app-shell';
-import { EmptyState, ErrorState, LoadingState } from '@/components/state';
+import { AppShell, AppShellSkeleton } from '@/components/app-shell';
+import { EmptyState, ErrorState } from '@/components/state';
 import { WorkspaceProvider } from '@/lib/workspace';
 
 function Centered({ children }: { children: ReactNode }) {
@@ -16,11 +16,7 @@ function Centered({ children }: { children: ReactNode }) {
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <WorkspaceProvider
-      loading={
-        <Centered>
-          <LoadingState />
-        </Centered>
-      }
+      loading={<AppShellSkeleton />}
       error={(retry, message) => (
         <Centered>
           <ErrorState message={message} onRetry={retry} />

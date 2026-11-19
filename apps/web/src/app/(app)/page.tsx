@@ -24,9 +24,11 @@ import { Funnel } from '@/components/overview/funnel';
 import { Heatmap } from '@/components/overview/heatmap';
 import { PeriodStrip } from '@/components/overview/period-strip';
 import { TopCreatives } from '@/components/overview/top-creatives';
+import { ChartSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useApi } from '@/lib/api';
 import { approxSom, int, money } from '@/lib/format';
 import { usePeriod } from '@/lib/period';
@@ -336,7 +338,7 @@ export default function OverviewPage() {
       />
       <PeriodStrip />
       {q.isPending ? (
-        <LoadingState rows={3} />
+        <OverviewSkeleton />
       ) : q.isError ? (
         <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
       ) : (
@@ -366,6 +368,59 @@ export default function OverviewPage() {
         </>
       )}
     </>
+  );
+}
+
+/** Каркас «Обзора»: главная цифра с полосой из четырёх, плитки и график — как после загрузки. */
+function OverviewSkeleton() {
+  return (
+    <LoadingState className="flex flex-col gap-5 md:gap-6">
+      <Card className="gap-0 py-0">
+        <div className="flex flex-col gap-2.5 p-4 sm:p-5">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-12 w-52 sm:h-15 sm:w-64" />
+          <Skeleton className="h-4 w-60 max-w-full" />
+        </div>
+        <div className="grid grid-cols-2 border-t sm:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className={cn(
+                'flex flex-col gap-1.5 px-4 py-3 sm:px-5',
+                i % 2 === 1 && 'border-l',
+                i >= 2 && 'border-t sm:border-t-0',
+                i === 2 && 'sm:border-l',
+              )}
+            >
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-5 w-12" />
+            </div>
+          ))}
+        </div>
+      </Card>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Card key={i} size="sm">
+            <CardHeader>
+              <Skeleton className="h-3.5 w-24" />
+            </CardHeader>
+            <CardContent className="flex flex-col gap-1.5">
+              <Skeleton className="h-7 w-16" />
+              <Skeleton className="h-3 w-20" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card>
+        <CardHeader className="gap-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-72 max-w-full" />
+        </CardHeader>
+        <CardContent>
+          <ChartSkeleton className="h-60 sm:h-72" />
+        </CardContent>
+      </Card>
+    </LoadingState>
   );
 }
 

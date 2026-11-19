@@ -18,11 +18,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ConnectForm } from './connect-form';
 import { RunsLog } from './runs-log';
 import { StageMap } from './stage-map';
 import { useIntegrationAction } from './use-integrations';
 import { isBrandSource, SourceLogo } from '@/components/source-badge';
+import { cn } from '@/lib/utils';
 
 const ICONS: Record<string, LucideIcon> = {
   meta_ads: Megaphone,
@@ -82,6 +84,43 @@ function Stat({ label, children, mono }: { label: string; children: ReactNode; m
         {children}
       </div>
     </div>
+  );
+}
+
+/** Каркас карточки источника: значок, название со статусом, описание, три цифры и раздел. */
+export function IntegrationCardSkeleton() {
+  return (
+    <Card className="gap-0 pb-0">
+      <CardHeader className="flex flex-row items-start gap-3 pb-4">
+        <Skeleton className="size-9 shrink-0 rounded-lg" />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-72 max-w-full" />
+        </div>
+      </CardHeader>
+      <CardContent className="pb-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className={cn(
+                'flex flex-col gap-1.5 rounded-lg bg-muted/50 px-3 py-2',
+                i === 2 && 'hidden sm:flex',
+              )}
+            >
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+      <div className="border-t px-4 py-3">
+        <Skeleton className="h-4 w-36" />
+      </div>
+    </Card>
   );
 }
 

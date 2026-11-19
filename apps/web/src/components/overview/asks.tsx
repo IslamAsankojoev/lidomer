@@ -1,7 +1,9 @@
 'use client';
 
 import { asksResponseSchema } from '@lidomer/shared';
+import { BarsSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWorkspaceQuery } from './use-workspace-query';
 
@@ -50,7 +52,14 @@ export function Asks({ from, to }: { from: string; to: string }) {
       </CardHeader>
       <CardContent className="grid gap-6 sm:grid-cols-2">
         {q.isPending ? (
-          <LoadingState rows={2} />
+          <LoadingState className="grid gap-6 sm:col-span-2 sm:grid-cols-2">
+            {[0, 1].map((i) => (
+              <div key={i} className="flex flex-col gap-3">
+                <Skeleton className="h-4 w-24" />
+                <BarsSkeleton rows={4} thin />
+              </div>
+            ))}
+          </LoadingState>
         ) : q.isError ? (
           <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
         ) : (

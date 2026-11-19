@@ -2,6 +2,7 @@
 
 import { creativesResponseSchema } from '@lidomer/shared';
 import Link from 'next/link';
+import { ListSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { adTitle } from '@/lib/ads';
@@ -29,7 +30,9 @@ export function TopCreatives({ from, to }: { from: string; to: string }) {
       </CardHeader>
       <CardContent>
         {q.isPending ? (
-          <LoadingState rows={2} />
+          <LoadingState>
+            <ListSkeleton rows={5} />
+          </LoadingState>
         ) : q.isError ? (
           <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
         ) : !q.data.items.length ? (

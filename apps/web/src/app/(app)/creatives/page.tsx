@@ -21,16 +21,21 @@ import { parseAsStringLiteral, useQueryStates } from 'nuqs';
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { PeriodBar } from '@/components/period-bar';
+import { ChartSkeleton, TableSkeleton } from '@/components/skeletons';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  useLastNonNull,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -267,7 +272,34 @@ export default function CreativesPage() {
       </div>
 
       {q.isPending ? (
-        <LoadingState rows={4} />
+        v.view === 'gallery' ? (
+          <LoadingState className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 8 }, (_, i) => (
+              <Card key={i} className="h-full pt-0">
+                <Skeleton className="aspect-video w-full rounded-none" />
+                <CardContent className="flex flex-col gap-2 pt-3">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </LoadingState>
+        ) : (
+          // Заголовки — те же, что у таблицы ниже (зависят от группировки и «С телефоном»).
+          <LoadingState className="rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]">
+            <TableSkeleton
+              rows={8}
+              columns={table.getVisibleLeafColumns().map((c) => ({
+                label: String(c.columnDef.header),
+                numeric: c.id !== 'name',
+              }))}
+            />
+          </LoadingState>
+        )
       ) : q.isError ? (
         <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
       ) : !rows.length ? (
@@ -366,7 +398,7 @@ export default function CreativesPage() {
   );
 }
 
-/** Боковая панель креатива: лиды по дням и последние лиды. */
+/** Окно креатива (объявления или кампании): цифры и лиды по дням. */
 function CreativePanel({
   row,
   onClose,
@@ -380,13 +412,15 @@ function CreativePanel({
   const { workspace } = useWorkspace();
   const { range } = usePeriod();
   const href = usePeriodHref();
-  const isAd = !!row && !row.ads;
+  // Пока окно уезжает, в нём остаётся тот же креатив.
+  const shown = useLastNonNull(row);
+  const isAd = !!shown && !shown.ads;
   const q = useQuery({
-    queryKey: ['creative-leads', workspace.id, range, row?.adKey],
+    queryKey: ['creative-leads', workspace.id, range, shown?.adKey],
     queryFn: () =>
       api(
         leadsResponseSchema,
-        `/leads?from=${range.from}&to=${range.to}&metric=adLeads&adKey=${encodeURIComponent(row!.adKey)}&limit=500`,
+        `/leads?from=${range.from}&to=${range.to}&metric=adLeads&adKey=${encodeURIComponent(shown!.adKey)}&limit=500`,
         { workspaceId: workspace.id },
       ),
     enabled: isAd,
@@ -399,60 +433,73 @@ function CreativePanel({
   const max = Math.max(1, ...byDay.map(([, n]) => n));
 
   return (
-    <Sheet open={!!row} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-        {row && (
+    <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="dialog-centered:max-w-md">
+        {shown && (
           <>
-            <SheetHeader>
-              <SheetTitle>{adTitle(row)}</SheetTitle>
-              <SheetDescription>
-                {[row.campaignName, row.adsetName].filter(Boolean).join(' › ') || ' '}
-              </SheetDescription>
-            </SheetHeader>
-            <div className="flex flex-col gap-4 px-4 pb-6">
+            <DialogHeader>
+              <DialogTitle>{adTitle(shown)}</DialogTitle>
+              <DialogDescription>
+                {isAd
+                  ? [shown.campaignName, shown.adsetName].filter(Boolean).join(' › ') ||
+                    'Без кампании'
+                  : `Кампания · объявлений: ${int(shown.ads ?? 0)}`}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogBody className="gap-4">
               <dl className="grid grid-cols-2 gap-2 text-sm">
                 <dt className="text-muted-foreground">Лиды · факт</dt>
-                <dd className="text-right tabular-nums">{int(row.leads)}</dd>
+                <dd className="text-right tabular-nums">{int(shown.leads)}</dd>
                 <dt className="text-muted-foreground">С телефоном</dt>
-                <dd className="text-right tabular-nums">{int(row.withPhone)}</dd>
+                <dd className="text-right tabular-nums">{int(shown.withPhone)}</dd>
                 <dt className="text-muted-foreground">Продажи</dt>
-                <dd className="text-right tabular-nums">{int(row.sales)}</dd>
+                <dd className="text-right tabular-nums">{int(shown.sales)}</dd>
                 <dt className="text-muted-foreground">Расход</dt>
                 <dd className="text-right">
-                  {row.spendMinor === null ? 'нет данных с Meta' : money(row.spendMinor, currency)}
+                  {shown.spendMinor === null
+                    ? 'нет данных с Meta'
+                    : money(shown.spendMinor, currency)}
                 </dd>
               </dl>
               {isAd && (
-                <>
-                  <div>
-                    <div className="mb-2 text-sm font-medium">Лиды по дням</div>
-                    {q.isPending ? (
-                      <LoadingState rows={1} />
-                    ) : (
-                      <div className="flex h-24 items-end gap-1" aria-label="Лиды по дням">
-                        {byDay.map(([d, n]) => (
-                          <div key={d} className="flex-1" title={`${d}: ${n}`}>
-                            <div
-                              className="rounded-t bg-[var(--chart-1)]"
-                              style={{ height: `${(n / max) * 88}px` }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    render={<Link href={href('/leads', { metric: 'adLeads', adKey: row.adKey })} />}
-                    variant="outline"
-                  >
-                    Все лиды этого объявления
-                  </Button>
-                </>
+                <div>
+                  <div className="mb-2 text-sm font-medium">Лиды по дням</div>
+                  {q.isPending ? (
+                    <LoadingState>
+                      <ChartSkeleton bars={14} className="h-24" />
+                    </LoadingState>
+                  ) : (
+                    <div className="flex h-24 items-end gap-1" aria-label="Лиды по дням">
+                      {byDay.map(([d, n]) => (
+                        <div key={d} className="flex-1" title={`${d}: ${n}`}>
+                          <div
+                            className="rounded-t bg-[var(--chart-1)]"
+                            style={{ height: `${(n / max) * 88}px` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
-            </div>
+            </DialogBody>
+            {isAd && (
+              <DialogFooter>
+                {/* Ссылка в виде кнопки. replace: «назад» из лидов ведёт к креативам,
+                    а не в уже закрытое окно. */}
+                <Link
+                  replace
+                  href={href('/leads', { metric: 'adLeads', adKey: shown.adKey })}
+                  data-slot="button"
+                  className={buttonVariants({ variant: 'outline' })}
+                >
+                  Все лиды этого объявления
+                </Link>
+              </DialogFooter>
+            )}
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

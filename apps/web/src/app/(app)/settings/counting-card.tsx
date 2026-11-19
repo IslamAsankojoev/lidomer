@@ -4,10 +4,12 @@ import { can, type CountingSettings, countingResponseSchema } from '@lidomer/sha
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ListSkeleton, TextSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useApi } from '@/lib/api';
 import { int } from '@/lib/format';
 import { useWorkspace } from '@/lib/workspace';
@@ -80,7 +82,18 @@ export function CountingCard() {
           q.isError ? (
             <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
           ) : (
-            <LoadingState rows={2} />
+            // Поле срока повторов и список источников с выбором справа.
+            <LoadingState className="flex flex-col gap-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Skeleton className="h-4 w-72 max-w-full" />
+                <Skeleton className="h-8 w-20 rounded-lg" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-4 w-52" />
+                <TextSkeleton lines={2} />
+                <ListSkeleton rows={3} trailing="control" inset className="rounded-lg border" />
+              </div>
+            </LoadingState>
           )
         ) : (
           <>

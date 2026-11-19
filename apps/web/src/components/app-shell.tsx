@@ -7,8 +7,10 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { NAV, navItemFor } from '@/components/nav';
+import { LoadingState } from '@/components/state';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { UserMenu } from '@/components/user-menu';
 import { WorkspaceLogo } from '@/components/workspace-logo';
@@ -79,6 +81,60 @@ function SidebarFooter() {
       <UserMenu variant="card" />
       <ThemeToggle />
     </div>
+  );
+}
+
+/**
+ * Каркас кабинета, пока грузится компания: та же оболочка (меню слева или строка сверху
+ * на телефоне), заголовок страницы и карточки — чтобы после загрузки ничего не прыгало.
+ */
+export function AppShellSkeleton() {
+  return (
+    <LoadingState className="flex min-h-dvh md:gap-2.5 md:p-2.5">
+      <aside className="sticky top-2.5 hidden h-[calc(100dvh-1.25rem)] w-56 shrink-0 flex-col gap-5 rounded-2xl border border-sidebar-border bg-sidebar p-2.5 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] md:flex">
+        <div className="flex items-center gap-2 px-2.5 py-1">
+          <Skeleton className="size-7 rounded-lg" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        {[3, 1, 2].map((n, g) => (
+          <div key={g} className="flex flex-col gap-1.5">
+            <Skeleton className="mx-2.5 mb-1 h-3 w-16" />
+            {Array.from({ length: n }, (_, i) => (
+              <div key={i} className="flex items-center gap-2.5 px-2.5 py-1.5">
+                <Skeleton className="size-4 rounded" />
+                <Skeleton className={cn('h-3.5', i % 2 ? 'w-20' : 'w-24')} />
+              </div>
+            ))}
+          </div>
+        ))}
+        <Skeleton className="mt-auto h-11 w-full rounded-xl" />
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-2 border-b px-2 py-2 md:hidden">
+          <Skeleton className="size-9 rounded-lg" />
+          <Skeleton className="size-7 rounded-lg" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="ml-auto size-8 rounded-full" />
+        </div>
+        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-5 md:gap-6 md:py-3">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-7 w-36" />
+            <Skeleton className="h-4 w-64 max-w-full" />
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-20 rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-44 rounded-xl" />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-24 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </LoadingState>
   );
 }
 

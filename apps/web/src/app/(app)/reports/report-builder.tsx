@@ -20,12 +20,14 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { ReportPreview } from './report-preview';
@@ -59,19 +61,21 @@ const fromTemplate = (t: ReportTemplate): ReportInput => ({
   enabled: true,
 });
 
-/** Конструктор отчёта: что → когда → куда → проверка. */
+/**
+ * Конструктор отчёта: что → когда → куда → проверка. Показан, пока смонтирован:
+ * закрывается сам (с анимацией) и только потом зовёт `onClose`.
+ */
 export function ReportBuilder({
-  open,
   onClose,
   report,
   chats,
 }: {
-  open: boolean;
   onClose: () => void;
   report: ReportDto | null;
   chats: TelegramChatDto[];
 }) {
   const { save } = useReportActions();
+  const [open, setOpen] = useState(true);
   const [step, setStep] = useState(0);
   const [v, setV] = useState<ReportInput>(() =>
     report ? { ...report } : fromTemplate('day_summary'),
@@ -97,27 +101,40 @@ export function ReportBuilder({
       toast.error(parsed.error.issues.map((i) => i.message).join('; '));
       return;
     }
-    save.mutate({ id: report?.id, body: parsed.data }, { onSuccess: onClose });
+    save.mutate({ id: report?.id, body: parsed.data }, { onSuccess: () => setOpen(false) });
   };
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{report ? 'Изменить отчёт' : 'Новый отчёт'}</SheetTitle>
-          <SheetDescription>Отправка в Telegram картинкой или PDF с подписью</SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-5 px-4 pb-6">
-          <ol className="flex gap-1" aria-label="Шаги">
+    <Dialog
+      open={open}
+      onOpenChange={setOpen}
+      onOpenChangeComplete={(o) => !o && onClose()}
+      // Клик мимо окна не закрывает: не потерять заполненное.
+      disablePointerDismissal
+    >
+      {/* Высота постоянная: кнопки внизу не прыгают от шага к шагу. */}
+      <DialogContent className="dialog-centered:h-[min(46rem,calc(100dvh-4rem))]">
+        <DialogHeader>
+          <DialogTitle>{report ? 'Изменить отчёт' : 'Новый отчёт'}</DialogTitle>
+          <DialogDescription>
+            {report ? report.name : 'В Telegram — картинкой или PDF с подписью'}
+          </DialogDescription>
+        </DialogHeader>
+        {/* key: новый шаг открывается с начала, а не с места прокрутки прошлого. */}
+        <DialogBody key={step}>
+          {/* Сегменты, как «Формат» ниже. */}
+          <ol className="grid grid-cols-4 gap-0.5 rounded-[9px] bg-muted p-0.5" aria-label="Шаги">
             {STEPS.map((s, i) => (
-              <li key={s} className="flex-1">
+              <li key={s}>
                 <button
                   type="button"
                   onClick={() => setStep(i)}
                   aria-current={step === i ? 'step' : undefined}
                   className={cn(
-                    'w-full rounded-md border px-2 py-1 text-xs',
-                    step === i ? 'bg-accent font-medium' : 'text-muted-foreground',
+                    'h-9 w-full rounded-[7px] px-1 text-xs whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dialog-centered:h-7',
+                    step === i
+                      ? 'bg-card font-medium text-foreground shadow-[0_0_0_0.5px_rgb(0_0_0/0.08),0_1px_2px_rgb(0_0_0/0.08)] dark:bg-foreground/15'
+                      : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
                   {i + 1}. {s}
@@ -251,7 +268,10 @@ export function ReportBuilder({
                             },
                           })
                         }
-                        className={cn('rounded-md border px-2 py-1', on && 'bg-accent font-medium')}
+                        className={cn(
+                          'h-10 min-w-10 rounded-lg border px-2 dialog-centered:h-8 dialog-centered:min-w-8',
+                          on && 'bg-accent font-medium',
+                        )}
                       >
                         {d}
                       </button>
@@ -352,29 +372,26 @@ export function ReportBuilder({
                 <dd>{REPORT_FORMAT_LABELS[v.config.format]}</dd>
               </dl>
               {v.config.blocks.length > 0 && <ReportPreview name={v.name} config={v.config} />}
+              <p className="text-xs text-muted-foreground">
+                Цифры в предпросмотре — за период на текущий момент. После сохранения можно
+                отправить тест в группу.
+              </p>
             </div>
           )}
-
-          <div className="flex justify-between gap-2">
-            <Button variant="outline" disabled={step === 0} onClick={() => setStep(step - 1)}>
-              Назад
+        </DialogBody>
+        <DialogFooter className="dialog-centered:justify-between">
+          <Button variant="outline" disabled={step === 0} onClick={() => setStep(step - 1)}>
+            Назад
+          </Button>
+          {step < STEPS.length - 1 ? (
+            <Button onClick={() => setStep(step + 1)}>Дальше</Button>
+          ) : (
+            <Button onClick={submit} disabled={save.isPending}>
+              {save.isPending ? 'Сохраняем…' : 'Сохранить'}
             </Button>
-            {step < STEPS.length - 1 ? (
-              <Button onClick={() => setStep(step + 1)}>Дальше</Button>
-            ) : (
-              <Button onClick={submit} disabled={save.isPending}>
-                {save.isPending ? 'Сохраняем…' : 'Сохранить'}
-              </Button>
-            )}
-          </div>
-          {step === 3 && (
-            <p className="text-xs text-muted-foreground">
-              Цифры в предпросмотре — за период на текущий момент. После сохранения можно отправить
-              тест в группу.
-            </p>
           )}
-        </div>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

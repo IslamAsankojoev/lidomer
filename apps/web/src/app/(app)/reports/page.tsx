@@ -7,11 +7,14 @@ import { Copy, Plus, Send } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
+import { TextSkeleton } from '@/components/skeletons';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useWorkspace } from '@/lib/workspace';
+import { cn } from '@/lib/utils';
 import { ReportBuilder, scheduleText } from './report-builder';
 import { useReportActions, useReportsData } from './use-reports';
 
@@ -70,7 +73,9 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3 text-sm">
           {chats.isPending ? (
-            <LoadingState rows={1} />
+            <LoadingState>
+              <TextSkeleton lines={2} />
+            </LoadingState>
           ) : chats.isError ? (
             <ErrorState message={chats.error.message} onRetry={() => void chats.refetch()} />
           ) : !chats.data.configured ? (
@@ -158,7 +163,24 @@ export default function ReportsPage() {
       </Card>
 
       {reports.isPending ? (
-        <LoadingState rows={2} />
+        <LoadingState className="flex flex-col gap-3">
+          {[0, 1].map((i) => (
+            <Card key={i}>
+              <CardHeader className="gap-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-64 max-w-full" />
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <Skeleton className="h-4 w-72 max-w-full" />
+                <div className="flex flex-wrap gap-2">
+                  <Skeleton className="h-7 w-20 rounded-lg" />
+                  <Skeleton className="h-7 w-32 rounded-lg" />
+                  <Skeleton className="h-7 w-28 rounded-lg" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </LoadingState>
       ) : reports.isError ? (
         <ErrorState message={reports.error.message} onRetry={() => void reports.refetch()} />
       ) : !reports.data.reports.length ? (
@@ -257,7 +279,25 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent>
           {runs.isPending ? (
-            <LoadingState rows={2} />
+            // Миниатюры отправок: название, дата со статусом и картинка 4:5.
+            <LoadingState className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'flex flex-col gap-2 rounded-lg border p-2.5',
+                    i === 2 && 'hidden md:flex',
+                  )}
+                >
+                  <Skeleton className="h-4 w-2/3" />
+                  <div className="flex items-center justify-between gap-1.5">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="aspect-[4/5] w-full" />
+                </div>
+              ))}
+            </LoadingState>
           ) : !runs.data?.runs.length ? (
             <p className="text-sm text-muted-foreground">Отправок ещё не было.</p>
           ) : (
@@ -319,7 +359,6 @@ export default function ReportsPage() {
       {editing && (
         <ReportBuilder
           key={editing === 'new' ? 'new' : editing.id}
-          open
           onClose={() => setEditing(null)}
           report={editing === 'new' ? null : editing}
           chats={chatList}

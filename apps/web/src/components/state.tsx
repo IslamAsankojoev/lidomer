@@ -1,16 +1,19 @@
 import { AlertTriangle, Inbox } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 
-/** Общие состояния экранов: загрузка, нет данных, ошибка. Нули вместо «нет данных» не показываем. */
-export function LoadingState({ rows = 3 }: { rows?: number }) {
+/**
+ * Общие состояния экранов: загрузка, нет данных, ошибка. Нули вместо «нет данных» не показываем.
+ *
+ * Загрузка — каркас того, что появится (плашки из components/skeletons.tsx повторяют форму
+ * таблиц, карточек и графиков), поэтому при подгрузке ничего не прыгает. Читалка экрана
+ * слышит «Загрузка…», сами плашки от неё скрыты.
+ */
+export function LoadingState({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
+    <div role="status" aria-busy="true" aria-live="polite" className={className}>
       <span className="sr-only">Загрузка…</span>
-      {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className="h-16 w-full" />
-      ))}
+      {children}
     </div>
   );
 }
