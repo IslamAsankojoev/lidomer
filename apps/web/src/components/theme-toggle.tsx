@@ -14,7 +14,7 @@ export function ThemeToggle() {
       aria-label="Сменить тему"
       onClick={(e) => {
         const next = resolvedTheme === 'dark' ? 'light' : 'dark';
-        switchThemeWithWave(e.currentTarget, next, () => {
+        switchThemeWithWave(e.currentTarget, () => {
           // next-themes ставит класс в эффекте React — уже после снимка кадра.
           // Ставим его сами синхронно, чтобы «новый» кадр волны был в новой теме.
           const root = document.documentElement;
