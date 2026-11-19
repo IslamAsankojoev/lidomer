@@ -50,7 +50,11 @@ function StripCell({ preset, label, hint }: (typeof PRESETS)[number] & { hint?: 
               </div>
             </>
           ) : (
-            <Skeleton className="h-10 w-full" />
+            // Число и строка под ним — как у загруженной ячейки.
+            <>
+              <Skeleton className="my-0.5 h-5 w-12 sm:h-6 sm:w-20" />
+              <Skeleton className="h-3 w-full max-w-36" />
+            </>
           )}
         </CardContent>
       </Card>

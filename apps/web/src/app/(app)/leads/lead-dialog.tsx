@@ -12,20 +12,23 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { ErrorState, LoadingState } from '@/components/state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  useLastNonNull,
+} from '@/components/ui/dialog';
 import { useApi } from '@/lib/api';
 import { money } from '@/lib/format';
 import { useWorkspace } from '@/lib/workspace';
@@ -51,18 +54,60 @@ const FACT_LABELS: Record<string, string> = {
 const selectCls =
   'h-8 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30';
 
+/** Каркас карточки: контакты, хронология с точками и анкета — как после загрузки. */
+function LeadSkeleton() {
+  return (
+    <LoadingState className="flex flex-col gap-5">
+      <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5">
+        {['w-32', 'w-24', 'w-40'].map((w, i) => (
+          <Fragment key={i}>
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className={`h-4 ${w}`} />
+          </Fragment>
+        ))}
+      </div>
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-4 w-24" />
+        <div className="flex flex-col gap-4 border-l pl-4">
+          {['w-3/4', 'w-2/3', 'w-1/2'].map((w, i) => (
+            <div key={i} className="relative flex flex-col gap-1.5">
+              <span className="absolute top-1 -left-[21px] size-2.5 rounded-full bg-muted" />
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className={`h-4 ${w}`} />
+              <Skeleton className="h-3.5 w-2/5" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-2.5">
+        <Skeleton className="h-4 w-28" />
+        <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5">
+          {['w-20', 'w-28', 'w-10', 'w-24'].map((w, i) => (
+            <Fragment key={i}>
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className={`h-4 ${w}`} />
+            </Fragment>
+          ))}
+        </div>
+      </div>
+    </LoadingState>
+  );
+}
+
 /** Карточка лида: хронология «объявление → Ward → сделка», анкета, ручная правка. */
-export function LeadSheet({ id, onClose }: { id: string | null; onClose: () => void }) {
+export function LeadDialog({ id, onClose }: { id: string | null; onClose: () => void }) {
   const api = useApi();
   const { workspace } = useWorkspace();
   const qc = useQueryClient();
+  // Пока окно уезжает, в нём остаётся тот же лид.
+  const leadId = useLastNonNull(id);
   const q = useQuery({
-    queryKey: ['lead', workspace.id, id],
+    queryKey: ['lead', workspace.id, leadId],
     queryFn: () =>
-      api(leadDetailResponseSchema, `/leads/${encodeURIComponent(id!)}`, {
+      api(leadDetailResponseSchema, `/leads/${encodeURIComponent(leadId!)}`, {
         workspaceId: workspace.id,
       }),
-    enabled: !!id,
+    enabled: !!leadId,
   });
   const [field, setField] = useState<'channel' | 'status' | 'excluded'>('channel');
   const [value, setValue] = useState<string>('organic');
@@ -70,7 +115,7 @@ export function LeadSheet({ id, onClose }: { id: string | null; onClose: () => v
 
   const override = useMutation({
     mutationFn: () =>
-      api(z.null(), `/leads/${encodeURIComponent(id!)}/overrides`, {
+      api(z.null(), `/leads/${encodeURIComponent(leadId!)}/overrides`, {
         workspaceId: workspace.id,
         method: 'POST',
         body: { field, value: field === 'excluded' ? true : value, reason },
@@ -86,24 +131,30 @@ export function LeadSheet({ id, onClose }: { id: string | null; onClose: () => v
 
   const l = q.data?.item;
   return (
-    <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{l?.name ?? (l?.instagram ? `@${l.instagram}` : 'Лид')}</SheetTitle>
-          <SheetDescription className="flex items-center gap-2">
+    <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}>
+      {/* Высота постоянная: окно не прыгает, когда карточка догружается. */}
+      <DialogContent className="dialog-centered:h-[min(40rem,calc(100dvh-4rem))]">
+        <DialogHeader>
+          <DialogTitle>{l?.name ?? (l?.instagram ? `@${l.instagram}` : 'Лид')}</DialogTitle>
+          <DialogDescription className="flex items-center justify-center gap-1.5 dialog-centered:justify-start">
             {l ? (
               <>
-                {LEAD_CHANNEL_LABELS[l.channel]}
-                <SourceBadge source={l.origin === 'ward' ? 'ward' : 'bitrix24'} variant="pill" />
+                {/* Длинный канал сокращается многоточием, бейдж источника — всегда целиком. */}
+                <span className="truncate">{LEAD_CHANNEL_LABELS[l.channel]}</span>
+                <SourceBadge
+                  source={l.origin === 'ward' ? 'ward' : 'bitrix24'}
+                  variant="pill"
+                  className="shrink-0"
+                />
               </>
             ) : (
               ' '
             )}
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-5 px-4 pb-6">
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody>
           {q.isPending ? (
-            <LoadingState rows={3} />
+            <LeadSkeleton />
           ) : q.isError || !l ? (
             <ErrorState message={q.error?.message} onRetry={() => void q.refetch()} />
           ) : (
@@ -239,8 +290,8 @@ export function LeadSheet({ id, onClose }: { id: string | null; onClose: () => v
               )}
             </>
           )}
-        </div>
-      </SheetContent>
-    </Sheet>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   );
 }

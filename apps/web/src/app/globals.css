@@ -4,6 +4,44 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Модальные окна (components/ui/dialog.tsx): по центру — только когда экран большой в обе
+ * стороны; на телефоне, в том числе лёжа, окно занимает весь экран.
+ */
+@custom-variant dialog-centered {
+  @media (width >= 48rem) and (height >= 32rem) {
+    @slot;
+  }
+}
+/* Ровно противоположное условие. Без запятой в @media: её сборка CSS разбирает неверно. */
+@custom-variant dialog-fullscreen {
+  @media not ((width >= 48rem) and (height >= 32rem)) {
+    @slot;
+  }
+}
+
+/*
+ * Скелетоны (components/ui/skeleton.tsx): появляются через 150 мс — быстрая загрузка
+ * не мигает, — затем по плашке пробегает блик.
+ */
+@theme {
+  --animate-skeleton:
+    skeleton-in 300ms ease-out 150ms both, skeleton-shine 1.6s ease-in-out 450ms infinite;
+  @keyframes skeleton-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes skeleton-shine {
+    from {
+      background-position: 150% 0;
+    }
+    to {
+      background-position: -50% 0;
+    }
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -154,6 +192,13 @@ select:not([multiple]) {
   background-position: right 0.625rem center;
   background-size: 1rem;
   padding-inline-end: 2.25rem;
+}
+
+/* Телефон: шрифт 16px, иначе iOS Safari приближает страницу при выборе (как text-base у Input). */
+@media (width < 48rem) {
+  select {
+    font-size: 1rem;
+  }
 }
 
 /* ---------- Смена темы волной от кнопки (lib/theme-wave.ts) ---------- */

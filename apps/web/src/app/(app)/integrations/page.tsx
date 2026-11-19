@@ -4,7 +4,7 @@ import { can } from '@lidomer/shared';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { useWorkspace } from '@/lib/workspace';
-import { IntegrationCard } from './integration-card';
+import { IntegrationCard, IntegrationCardSkeleton } from './integration-card';
 import { useIntegrations } from './use-integrations';
 
 export default function IntegrationsPage() {
@@ -30,7 +30,11 @@ function IntegrationsList({ canManage }: { canManage: boolean }) {
         description="Источники данных. Ключи хранятся зашифрованными и после сохранения видны только маской."
       />
       {q.isPending ? (
-        <LoadingState rows={3} />
+        <LoadingState className="flex flex-col gap-4">
+          {[0, 1, 2].map((i) => (
+            <IntegrationCardSkeleton key={i} />
+          ))}
+        </LoadingState>
       ) : q.isError ? (
         <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
       ) : (

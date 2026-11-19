@@ -5,6 +5,7 @@ import { Fragment } from 'react';
 import { heatmapResponseSchema } from '@lidomer/shared';
 import { ErrorState, LoadingState } from '@/components/state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useWorkspaceQuery } from './use-workspace-query';
 
 const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -49,7 +50,29 @@ export function Heatmap({ from, to }: { from: string; to: string }) {
       </CardHeader>
       <CardContent>
         {q.isPending ? (
-          <LoadingState rows={2} />
+          <LoadingState className="flex flex-col gap-3">
+            {/* Та же сетка 7 × 24, что у карты: высота не меняется, когда придут данные. */}
+            <div
+              className="grid grid-cols-[auto_repeat(24,minmax(0,1fr))] gap-0.5 sm:gap-[3px]"
+              aria-hidden
+            >
+              <span className="h-4" />
+              {Array.from({ length: 24 }, (_, h) => (
+                <span key={h} />
+              ))}
+              {DAYS.map((d) => (
+                <Fragment key={d}>
+                  <span className="pr-1.5 text-[10px] leading-none text-muted-foreground">
+                    {d}
+                  </span>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <Skeleton key={h} className="aspect-square rounded-[3px]" />
+                  ))}
+                </Fragment>
+              ))}
+            </div>
+            <Skeleton className="h-3 w-48" />
+          </LoadingState>
         ) : q.isError ? (
           <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
         ) : (

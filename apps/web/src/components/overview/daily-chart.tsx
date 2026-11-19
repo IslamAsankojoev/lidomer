@@ -4,7 +4,9 @@ import { costPerLead, dailyResponseSchema } from '@lidomer/shared';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { ChartSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   type ChartConfig,
@@ -51,7 +53,14 @@ export function DailyChart({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {q.isPending ? (
-          <LoadingState rows={2} />
+          <LoadingState className="flex flex-col gap-4">
+            <ChartSkeleton className="h-60 sm:h-72" />
+            <div className="flex justify-center gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-3 w-16" />
+              ))}
+            </div>
+          </LoadingState>
         ) : q.isError ? (
           <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
         ) : (

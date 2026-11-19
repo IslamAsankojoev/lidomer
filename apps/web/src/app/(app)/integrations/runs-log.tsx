@@ -3,6 +3,7 @@
 import type { IntegrationType } from '@lidomer/shared';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { TableSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -30,7 +31,15 @@ const period = (from: string | null, to: string | null) =>
 /** Журнал запусков синхронизации: что грузили, сколько записей, ошибка. */
 export function RunsLog({ type }: { type: IntegrationType }) {
   const runs = useSyncRuns(type, true);
-  if (runs.isPending) return <LoadingState rows={2} />;
+  if (runs.isPending)
+    return (
+      <LoadingState>
+        <TableSkeleton
+          rows={4}
+          columns={['Когда', 'Что', 'Период', { label: 'Записей', numeric: true }, 'Итог']}
+        />
+      </LoadingState>
+    );
   if (runs.isError)
     return <ErrorState message={runs.error.message} onRetry={() => void runs.refetch()} />;
   if (!runs.data.runs.length)

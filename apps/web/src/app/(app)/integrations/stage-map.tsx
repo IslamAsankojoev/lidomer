@@ -11,7 +11,9 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ListSkeleton, TextSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useApi } from '@/lib/api';
 import { useWorkspace } from '@/lib/workspace';
@@ -76,7 +78,17 @@ export function StageMap({ canManage }: { canManage: boolean }) {
     return [...m.values()];
   }, [q.data]);
 
-  if (q.isPending) return <LoadingState rows={2} />;
+  if (q.isPending)
+    return (
+      // Пояснение, название воронки и стадии с выбором статуса справа.
+      <LoadingState className="flex flex-col gap-4">
+        <TextSkeleton lines={2} />
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="h-4 w-32" />
+          <ListSkeleton rows={4} trailing="control" inset className="rounded-lg border" />
+        </div>
+      </LoadingState>
+    );
   if (q.isError) return <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />;
   if (!q.data.stages.length)
     return (

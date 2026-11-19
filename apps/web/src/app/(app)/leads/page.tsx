@@ -19,6 +19,7 @@ import { ru } from 'date-fns/locale';
 import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs';
 import { PageHeader } from '@/components/page-header';
 import { PeriodBar } from '@/components/period-bar';
+import { ListSkeleton, TableSkeleton } from '@/components/skeletons';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,8 +35,9 @@ import { useApi } from '@/lib/api';
 import { int, money } from '@/lib/format';
 import { usePeriod } from '@/lib/period';
 import { exportCsv, exportXlsx } from '@/lib/export';
+import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/lib/workspace';
-import { LeadSheet } from './lead-sheet';
+import { LeadDialog } from './lead-dialog';
 import { SourceBadge, SourceLogo } from '@/components/source-badge';
 
 const PAGE = 50;
@@ -117,6 +119,8 @@ export default function LeadsPage() {
   });
   const set = (patch: Partial<typeof f>) => void setF({ ...patch, page: 0 });
   const [openId, setOpenId] = useState<string | null>(null);
+  // Новые фильтры грузятся — прежний список виден, но приглушён: ясно, что он устарел.
+  const stale = q.isPlaceholderData && 'pointer-events-none opacity-50';
   const [exporting, setExporting] = useState(false);
 
   /** Выгрузка всех лидов по текущим фильтрам (не только страницы). */
@@ -218,7 +222,18 @@ export default function LeadsPage() {
       </div>
 
       {q.isPending ? (
-        <LoadingState rows={4} />
+        // Та же форма, что у списка: карточки на телефоне, таблица на компьютере.
+        <LoadingState>
+          <div className="rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] sm:hidden">
+            <ListSkeleton rows={8} inset />
+          </div>
+          <div className="hidden rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] sm:block">
+            <TableSkeleton
+              columns={['Когда', 'Клиент', 'Канал', 'Объявление', 'Сделка', 'Проблемы']}
+              rows={10}
+            />
+          </div>
+        </LoadingState>
       ) : q.isError ? (
         <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />
       ) : !q.data.items.length ? (
@@ -229,7 +244,13 @@ export default function LeadsPage() {
       ) : (
         <>
           {/* Телефон: список карточек вместо широкой таблицы, без прокрутки вбок. */}
-          <ul className="flex flex-col divide-y rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] sm:hidden">
+          <ul
+            aria-busy={q.isPlaceholderData}
+            className={cn(
+              'flex flex-col divide-y rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition-opacity sm:hidden',
+              stale,
+            )}
+          >
             {q.data.items.map((l) => (
               <li key={l.id}>
                 <button
@@ -275,7 +296,13 @@ export default function LeadsPage() {
               </li>
             ))}
           </ul>
-          <div className="hidden overflow-x-auto rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] sm:block">
+          <div
+            aria-busy={q.isPlaceholderData}
+            className={cn(
+              'hidden overflow-x-auto rounded-xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition-opacity sm:block',
+              stale,
+            )}
+          >
             <Table>
               <TableHeader>
                 <TableRow>
@@ -383,7 +410,7 @@ export default function LeadsPage() {
           </div>
         </>
       )}
-      <LeadSheet id={openId} onClose={() => setOpenId(null)} />
+      <LeadDialog id={openId} onClose={() => setOpenId(null)} />
     </>
   );
 }

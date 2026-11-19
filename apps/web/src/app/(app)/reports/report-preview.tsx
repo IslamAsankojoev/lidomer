@@ -10,6 +10,7 @@ import { FileText } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { REPORT_IMAGE_SIZE, ReportImage } from '@/components/report-image';
 import { ErrorState, LoadingState } from '@/components/state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useApi } from '@/lib/api';
 import { useWorkspace } from '@/lib/workspace';
 
@@ -59,7 +60,24 @@ export function ReportPreview({ name, config }: { name: string; config: ReportCo
       }),
     staleTime: 60_000,
   });
-  if (q.isPending) return <LoadingState rows={3} />;
+  if (q.isPending)
+    return (
+      // Сообщение в чате: картинка 1080×1350 и подпись под ней.
+      <LoadingState className="flex flex-col gap-2">
+        <Skeleton className="h-3 w-40" />
+        <div className="flex flex-col gap-2 rounded-xl bg-muted/60 p-2">
+          <Skeleton
+            className="w-full rounded-lg bg-card"
+            style={{ aspectRatio: `${REPORT_IMAGE_SIZE.width} / ${REPORT_IMAGE_SIZE.height}` }}
+          />
+          <div className="flex flex-col gap-2 p-1">
+            {['w-1/2', 'w-full', 'w-5/6', 'w-2/3'].map((w) => (
+              <Skeleton key={w} className={`h-3.5 bg-card ${w}`} />
+            ))}
+          </div>
+        </div>
+      </LoadingState>
+    );
   if (q.isError) return <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />;
   const { snapshot, caption, rest } = q.data;
   const period =

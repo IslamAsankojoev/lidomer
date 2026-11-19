@@ -1,7 +1,9 @@
 'use client';
 
 import { funnelResponseSchema, percent } from '@lidomer/shared';
+import { BarsSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { int } from '@/lib/format';
 import { useWorkspaceQuery } from './use-workspace-query';
@@ -33,7 +35,10 @@ export function Funnel({ from, to }: { from: string; to: string }) {
       </CardHeader>
       <CardContent>
         {q.isPending ? (
-          <LoadingState rows={2} />
+          <LoadingState className="flex flex-col gap-3">
+            <BarsSkeleton rows={4} />
+            <Skeleton className="h-3 w-3/4" />
+          </LoadingState>
         ) : q.isError || !d ? (
           <ErrorState message={q.error?.message} onRetry={() => void q.refetch()} />
         ) : (
