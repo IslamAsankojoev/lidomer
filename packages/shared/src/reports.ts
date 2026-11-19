@@ -79,12 +79,20 @@ export const TEMPLATE_DEFAULTS: Record<
   },
   week: {
     name: 'Неделя',
-    config: { format: 'png', period: 'prev_week', blocks: ['kpis', 'channels', 'creatives', 'funnel'] },
+    config: {
+      format: 'png',
+      period: 'prev_week',
+      blocks: ['kpis', 'channels', 'creatives', 'funnel'],
+    },
     schedule: { times: ['10:00'], weekdays: [1], monthDays: [] },
   },
   month: {
     name: 'Месяц',
-    config: { format: 'png', period: 'prev_month', blocks: ['kpis', 'channels', 'creatives', 'funnel'] },
+    config: {
+      format: 'png',
+      period: 'prev_month',
+      blocks: ['kpis', 'channels', 'creatives', 'funnel'],
+    },
     schedule: { times: ['10:00'], weekdays: [], monthDays: [1] },
   },
   custom: {

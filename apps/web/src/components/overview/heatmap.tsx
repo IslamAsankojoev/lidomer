@@ -62,9 +62,7 @@ export function Heatmap({ from, to }: { from: string; to: string }) {
               ))}
               {DAYS.map((d) => (
                 <Fragment key={d}>
-                  <span className="pr-1.5 text-[10px] leading-none text-muted-foreground">
-                    {d}
-                  </span>
+                  <span className="pr-1.5 text-[10px] leading-none text-muted-foreground">{d}</span>
                   {Array.from({ length: 24 }, (_, h) => (
                     <Skeleton key={h} className="aspect-square rounded-[3px]" />
                   ))}
