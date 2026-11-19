@@ -123,7 +123,11 @@ export function BarsSkeleton({ rows = 4, thin = false }: { rows?: number; thin?:
             <Skeleton className="h-3.5 w-8" />
           </div>
           <Skeleton
-            className={cn('rounded-full', thin ? 'h-1.5' : 'h-2', BAR_WIDTHS[i % BAR_WIDTHS.length])}
+            className={cn(
+              'rounded-full',
+              thin ? 'h-1.5' : 'h-2',
+              BAR_WIDTHS[i % BAR_WIDTHS.length],
+            )}
           />
         </div>
       ))}
