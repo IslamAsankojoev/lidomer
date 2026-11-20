@@ -201,6 +201,8 @@ export const creativeItemSchema = z.object({
   spendMinor: z.number().int().nullable(),
   metaLeads: z.number().int().nullable(),
   cplFactMinor: z.number().int().nullable(),
+  /** Превью креатива (подписанная ссылка на копию в Storage); null — объявление не из Meta. */
+  previewUrl: z.string().nullable().default(null),
 });
 export type CreativeItem = z.infer<typeof creativeItemSchema>;
 export const creativesResponseSchema = z.object({

@@ -196,8 +196,9 @@ export function createMetaAdapter(deps: MetaAdapterDeps = {}): SourceAdapter<Met
             fields: 'id,campaign_id,name,status,optimization_goal,destination_type',
           });
           const ads = await api.getAll(`/${accountId}/ads`, adSchema, {
+            // Миниатюра 600×600: по умолчанию Meta отдаёт 64×64, в галерее она размыта.
             fields:
-              'id,name,campaign_id,adset_id,status,effective_status,created_time,creative{id,thumbnail_url,image_url}',
+              'id,name,campaign_id,adset_id,status,effective_status,created_time,creative.thumbnail_width(600).thumbnail_height(600){id,thumbnail_url,image_url}',
           });
           if (campaigns.length)
             await ctx.db

@@ -47,7 +47,7 @@ const input = (p: Partial<ReconcileInput>): ReconcileInput => ({
     ['LOSE', 'lost'],
   ]),
   overrides: [],
-  metaAdIds: null,
+  metaAds: null,
   ...p,
 });
 
@@ -269,5 +269,71 @@ describe('метрики по дням', () => {
         leads: 0,
       }),
     ]);
+  });
+});
+
+describe('привязка к объявлениям Meta', () => {
+  // Фейковые объявления: две копии «1» в разных кампаниях и две одинаковые тройки «Дубль».
+  const metaAds = [
+    { id: '900001', name: 'Риэлт 2', campaignName: 'Компания  А', adsetName: 'ФМ риэлторы' },
+    { id: '900002', name: '1', campaignName: '09.11', adsetName: 'Ширик 35' },
+    { id: '900003', name: '1', campaignName: '09.11 — Копия', adsetName: 'Ширик 35' },
+    { id: '900004', name: 'Дубль', campaignName: 'К', adsetName: 'Г' },
+    { id: '900005', name: 'Дубль', campaignName: 'К', adsetName: 'Г' },
+  ];
+  const adDeal = (id: string, campaign: string, adset: string, ad: string) =>
+    deal(id, {
+      utmSource: 'ig',
+      utmMedium: adset,
+      utmCampaign: campaign,
+      utmContent: ad,
+    });
+
+  it('UTM «кампания › группа › объявление» → id объявления и названия из Meta', () => {
+    const rows = reconcile(
+      input({
+        metaAds,
+        deals: [
+          adDeal('1', 'компания а', 'ФМ  риэлторы', 'Риэлт 2'),
+          adDeal('2', '09.11 — Копия', 'Ширик 35', '1'),
+        ],
+      }),
+    );
+    expect(rows.map((r) => [r.adKey, r.adId, r.campaignName])).toEqual([
+      ['900001', '900001', 'Компания  А'],
+      ['900003', '900003', '09.11 — Копия'],
+    ]);
+  });
+
+  it('id объявления прямо в UTM — тоже привязка', () => {
+    const [r] = reconcile(input({ metaAds, deals: [adDeal('3', 'что-то', 'что-то', '900002')] }));
+    expect(r!.adKey).toBe('900002');
+    expect(r!.adName).toBe('1');
+  });
+
+  it('неоднозначная тройка или нет в Meta — остаётся ключ UTM, ничего не угадываем', () => {
+    const rows = reconcile(
+      input({
+        metaAds,
+        deals: [adDeal('4', 'К', 'Г', 'Дубль'), adDeal('5', 'Нет', 'Такой', 'Рекламы')],
+      }),
+    );
+    expect(rows.map((r) => [r.adKey, r.adId])).toEqual([
+      ['utm:К › Г › Дубль', null],
+      ['utm:Нет › Такой › Рекламы', null],
+    ]);
+  });
+
+  it('лид WARD по id объявления получает названия кампании и группы из Meta', () => {
+    const [r] = reconcile(
+      input({ metaAds, wardLeads: [ward(7, { sourceAdId: '900003', adTitle: 'заголовок' })] }),
+    );
+    expect(r).toMatchObject({
+      adKey: '900003',
+      adName: '1',
+      campaignName: '09.11 — Копия',
+      adsetName: 'Ширик 35',
+    });
+    expect(r!.flags).not.toContain('ad_not_connected');
   });
 });

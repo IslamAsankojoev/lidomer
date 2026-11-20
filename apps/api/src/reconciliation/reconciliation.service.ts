@@ -8,6 +8,8 @@ import {
   leadOverrides,
   leads,
   metaAds,
+  metaAdsets,
+  metaCampaigns,
   metaInsightsDaily,
   metricsDaily,
   wardLeads,
@@ -62,7 +64,26 @@ export class ReconciliationService {
     );
     const [adIds, insights] = metaConnected
       ? await Promise.all([
-          db.select({ id: metaAds.id }).from(metaAds).where(eq(metaAds.workspaceId, workspaceId)),
+          db
+            .select({
+              id: metaAds.id,
+              name: metaAds.name,
+              campaignName: metaCampaigns.name,
+              adsetName: metaAdsets.name,
+            })
+            .from(metaAds)
+            .leftJoin(
+              metaCampaigns,
+              and(
+                eq(metaCampaigns.workspaceId, workspaceId),
+                eq(metaCampaigns.id, metaAds.campaignId),
+              ),
+            )
+            .leftJoin(
+              metaAdsets,
+              and(eq(metaAdsets.workspaceId, workspaceId), eq(metaAdsets.id, metaAds.adsetId)),
+            )
+            .where(eq(metaAds.workspaceId, workspaceId)),
           db.select().from(metaInsightsDaily).where(eq(metaInsightsDaily.workspaceId, workspaceId)),
         ])
       : [[], null];
@@ -77,7 +98,7 @@ export class ReconciliationService {
         stages.map((s) => [s.stageId, s.mappedStatus ?? defaultDealStatus(s.semantics)]),
       ),
       overrides: overrides as OverrideIn[],
-      metaAdIds: metaConnected ? new Set(adIds.map((a) => a.id)) : null,
+      metaAds: metaConnected ? adIds : null,
     });
     const metrics = buildMetrics(
       rows,
