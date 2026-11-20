@@ -58,6 +58,28 @@ interface Row extends CreativeItem {
   ads?: number;
 }
 
+/** Превью креатива из Meta или значок, если объявление не из подключённого кабинета. */
+function Preview({
+  url,
+  className,
+  icon,
+}: {
+  url: string | null;
+  className: string;
+  icon: string;
+}) {
+  if (url)
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- подписанная ссылка Storage со сроком, оптимизатор не нужен
+      <img src={url} alt="" aria-hidden loading="lazy" className={`${className} object-cover`} />
+    );
+  return (
+    <div className={`${className} flex items-center justify-center bg-muted`} aria-hidden>
+      <ImageIcon className={`${icon} text-muted-foreground`} />
+    </div>
+  );
+}
+
 /** Строки по кампаниям: суммы объявлений одной кампании. */
 function byCampaign(items: CreativeItem[]): Row[] {
   const m = new Map<string, Row>();
@@ -72,16 +94,19 @@ function byCampaign(items: CreativeItem[]): Row[] {
       leads: 0,
       withPhone: 0,
       sales: 0,
-      spendMinor: c.spendMinor === null ? null : 0,
-      metaLeads: c.metaLeads === null ? null : 0,
+      // null — ни у одного объявления кампании нет данных Meta; иначе сумма известных.
+      spendMinor: null as number | null,
+      metaLeads: null as number | null,
       cplFactMinor: null,
+      previewUrl: c.previewUrl,
       ads: 0,
     };
     r.leads += c.leads;
     r.withPhone += c.withPhone;
     r.sales += c.sales;
-    if (r.spendMinor !== null && c.spendMinor !== null) r.spendMinor += c.spendMinor;
-    if (r.metaLeads !== null && c.metaLeads !== null) r.metaLeads += c.metaLeads;
+    if (c.spendMinor !== null) r.spendMinor = (r.spendMinor ?? 0) + c.spendMinor;
+    if (c.metaLeads !== null) r.metaLeads = (r.metaLeads ?? 0) + c.metaLeads;
+    r.previewUrl ??= c.previewUrl;
     r.ads = (r.ads ?? 0) + 1;
     m.set(key, r);
   }
@@ -138,12 +163,7 @@ export default function CreativesPage() {
         accessorFn: (r) => adTitle(r),
         cell: ({ row: { original: r } }) => (
           <div className="flex min-w-0 items-center gap-3">
-            <div
-              className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted"
-              aria-hidden
-            >
-              <ImageIcon className="size-4 text-muted-foreground" />
-            </div>
+            <Preview url={r.previewUrl} className="size-10 shrink-0 rounded-md" icon="size-4" />
             <div className="min-w-0">
               <div className="truncate font-medium">{adTitle(r)}</div>
               <div className="truncate text-xs text-muted-foreground">
@@ -309,12 +329,11 @@ export default function CreativesPage() {
           {table.getRowModel().rows.map(({ original: r }) => (
             <button key={r.adKey} type="button" className="text-left" onClick={() => setOpen(r)}>
               <Card className="h-full transition-colors hover:bg-accent/40">
-                <div
-                  className="flex aspect-video items-center justify-center rounded-t-xl bg-muted"
-                  aria-hidden
-                >
-                  <ImageIcon className="size-8 text-muted-foreground" />
-                </div>
+                <Preview
+                  url={r.previewUrl}
+                  className="aspect-video w-full rounded-t-xl"
+                  icon="size-8"
+                />
                 <CardContent className="flex flex-col gap-1 pt-3">
                   <div className="truncate font-medium">{adTitle(r)}</div>
                   <div className="truncate text-xs text-muted-foreground">

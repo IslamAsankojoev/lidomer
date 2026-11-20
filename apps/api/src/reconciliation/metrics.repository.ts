@@ -9,6 +9,9 @@ import {
   leads,
   metricsDaily,
   rawPayloads,
+  metaAds,
+  metaAdsets,
+  metaCampaigns,
 } from '@lidomer/db';
 import {
   costPerLead,
@@ -276,12 +279,38 @@ export class MetricsRepository {
         leads: sql<number>`sum(${m.leads})::int`,
         sales: sql<number>`sum(${m.sales})::int`,
         withPhone: sql<number>`sum(${m.withPhone})::int`,
-        spend: sql<number>`coalesce(sum(${m.spendMinor}), 0)::bigint`,
-        metaLeads: sql<number>`coalesce(sum(${m.metaLeads}), 0)::int`,
+        // null — по объявлению нет данных Meta (лиды по UTM без привязки): это не ноль расхода.
+        spend: sql<number | null>`sum(${m.spendMinor})::bigint`,
+        metaLeads: sql<number | null>`sum(${m.metaLeads})::int`,
       })
       .from(m)
       .where(and(eq(m.workspaceId, workspaceId), eq(m.channel, 'ad'), between(m.day, from, to)))
       .groupBy(m.adKey);
+    // Названия и превью объявлений Meta — для строк, у которых в журнале лидов названий нет.
+    const ads = metaConnected
+      ? await this.db
+          .select({
+            id: metaAds.id,
+            name: metaAds.name,
+            previewPath: metaAds.previewPath,
+            campaignName: metaCampaigns.name,
+            adsetName: metaAdsets.name,
+          })
+          .from(metaAds)
+          .leftJoin(
+            metaCampaigns,
+            and(
+              eq(metaCampaigns.workspaceId, workspaceId),
+              eq(metaCampaigns.id, metaAds.campaignId),
+            ),
+          )
+          .leftJoin(
+            metaAdsets,
+            and(eq(metaAdsets.workspaceId, workspaceId), eq(metaAdsets.id, metaAds.adsetId)),
+          )
+          .where(eq(metaAds.workspaceId, workspaceId))
+      : [];
+    const adById = new Map(ads.map((a) => [a.id, a]));
     const names = await this.db
       .select({
         adKey: leads.adKey,
@@ -295,18 +324,20 @@ export class MetricsRepository {
     const byKey = new Map(names.map((n) => [n.adKey ?? '', n]));
     return rows
       .map((r) => {
-        const spend = metaConnected ? Number(r.spend) : null;
+        const spend = metaConnected && r.spend !== null ? Number(r.spend) : null;
         const n = byKey.get(r.adKey);
+        const ad = adById.get(r.adKey);
         return {
           adKey: r.adKey,
-          adName: n?.adName ?? null,
-          campaignName: n?.campaignName ?? null,
-          adsetName: n?.adsetName ?? null,
+          adName: ad?.name ?? n?.adName ?? null,
+          campaignName: ad?.campaignName ?? n?.campaignName ?? null,
+          adsetName: ad?.adsetName ?? n?.adsetName ?? null,
           leads: r.leads,
           withPhone: r.withPhone,
           sales: r.sales,
           spendMinor: spend,
-          metaLeads: metaConnected ? r.metaLeads : null,
+          metaLeads: metaConnected && r.metaLeads !== null ? r.metaLeads : null,
+          previewPath: ad?.previewPath ?? null,
           cplFactMinor: costPerLead(spend, r.leads),
         };
       })

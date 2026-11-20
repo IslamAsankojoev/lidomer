@@ -43,16 +43,30 @@ export function TopCreatives({ from, to }: { from: string; to: string }) {
               <li key={c.adKey} className="flex items-center justify-between gap-3 py-2">
                 <Link
                   href={href('/leads', { metric: 'adLeads', adKey: c.adKey })}
-                  className="min-w-0 hover:underline"
+                  className="flex min-w-0 items-center gap-2.5 hover:underline"
                 >
-                  <div className="truncate text-sm">
-                    {i + 1}. {adTitle(c)}
-                  </div>
-                  {c.campaignName && (
-                    <div className="truncate text-xs text-muted-foreground">
-                      {c.campaignName} › {c.adsetName}
-                    </div>
+                  {c.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- подписанная ссылка Storage
+                    <img
+                      src={c.previewUrl}
+                      alt=""
+                      aria-hidden
+                      loading="lazy"
+                      className="size-9 shrink-0 rounded-md object-cover"
+                    />
+                  ) : (
+                    <span className="size-9 shrink-0 rounded-md bg-muted" aria-hidden />
                   )}
+                  <span className="min-w-0">
+                    <div className="truncate text-sm">
+                      {i + 1}. {adTitle(c)}
+                    </div>
+                    {c.campaignName && (
+                      <div className="truncate text-xs text-muted-foreground">
+                        {c.campaignName} › {c.adsetName}
+                      </div>
+                    )}
+                  </span>
                 </Link>
                 <div className="shrink-0 text-right text-sm tabular-nums">
                   {int(c.leads)} лидов

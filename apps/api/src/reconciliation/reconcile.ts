@@ -66,8 +66,43 @@ export interface ReconcileInput {
   /** Статус стадии: выбор владельца или по семантике. */
   stageStatus: Map<string, DealStatus>;
   overrides: OverrideIn[];
-  /** id объявлений подключённого кабинета Meta; null — Meta не подключена (флаг не ставим). */
-  metaAdIds: Set<string> | null;
+  /** Объявления подключённого кабинета Meta; null — Meta не подключена (флаг не ставим). */
+  metaAds: MetaAdIn[] | null;
+}
+
+/** Объявление Meta с названиями кампании и группы — для привязки лидов. */
+export interface MetaAdIn {
+  id: string;
+  name: string | null;
+  campaignName: string | null;
+  adsetName: string | null;
+}
+
+/** Название для сравнения с UTM: регистр, лишние пробелы и форма Unicode не важны. */
+const norm = (v: string | null | undefined) =>
+  (v ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+
+/**
+ * Индекс объявлений Meta: по id и по тройке «кампания › группа › объявление».
+ * Тройка, под которой больше одного объявления (копии с одинаковыми названиями), не попадает
+ * в индекс — такую привязку угадывать нельзя.
+ */
+export function metaAdIndex(ads: MetaAdIn[]) {
+  const byId = new Map(ads.map((a) => [a.id, a]));
+  const byUtm = new Map<string, MetaAdIn | null>();
+  for (const a of ads) {
+    const k = [a.campaignName, a.adsetName, a.name].map(norm).join('|');
+    byUtm.set(k, byUtm.has(k) ? null : a);
+  }
+  /** Объявление по UTM сделки: прямо по id в любой метке или по однозначной тройке названий. */
+  const fromUtm = (campaign: string | null, adset: string | null, ad: string | null) => {
+    for (const v of [ad, adset, campaign]) {
+      const byIdHit = v ? byId.get(v.trim()) : undefined;
+      if (byIdHit) return byIdHit;
+    }
+    return byUtm.get([campaign, adset, ad].map(norm).join('|')) ?? null;
+  };
+  return { byId, fromUtm };
 }
 
 export interface LeadRow {
@@ -117,6 +152,7 @@ const utmKey = (d: DealIn) =>
  * Источники не меняются; ручные решения — только через overrides.
  */
 export function reconcile(input: ReconcileInput): LeadRow[] {
+  const meta = input.metaAds ? metaAdIndex(input.metaAds) : null;
   const { timezone, settings } = input;
   const dealsById = new Map(input.deals.map((d) => [d.id, d]));
   const dealStatus = (d: DealIn) =>
@@ -135,7 +171,8 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
     if (!deal) flags.push('no_deal');
     if (!phone) flags.push('no_phone');
     if (w.sourceKind === 'unknown') flags.push('source_unparsed');
-    if (channel === 'ad' && input.metaAdIds && w.sourceAdId && !input.metaAdIds.has(w.sourceAdId)) {
+    const metaAd = w.sourceAdId ? meta?.byId.get(w.sourceAdId) : undefined;
+    if (channel === 'ad' && meta && w.sourceAdId && !metaAd) {
       flags.push('ad_not_connected');
     }
     rows.push({
@@ -149,9 +186,10 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
       channel,
       adKey: channel === 'ad' ? w.sourceAdId : null,
       adId: channel === 'ad' ? w.sourceAdId : null,
-      adName: channel === 'ad' ? w.adTitle : null,
-      campaignName: null,
-      adsetName: null,
+      // Названия — из Meta (точнее заголовка из WARD), иначе то, что дал WARD.
+      adName: channel === 'ad' ? (metaAd?.name ?? w.adTitle) : null,
+      campaignName: channel === 'ad' ? (metaAd?.campaignName ?? null) : null,
+      adsetName: channel === 'ad' ? (metaAd?.adsetName ?? null) : null,
       postId: w.sourcePostId,
       wardLeadId: w.id,
       dealId: deal?.id ?? null,
@@ -182,17 +220,25 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
     let channel: LeadChannel;
     let adId: string | null = null;
     let adKey: string | null = null;
+    let metaHit: MetaAdIn | null = null;
     if (wardSrc) {
       channel = WARD_CHANNEL[wardSrc.kind];
       adId = wardSrc.adId;
       adKey = adId;
+      metaHit = (adId && meta?.byId.get(adId)) || null;
       if (wardSrc.kind === 'ad') flags.push('ad_label_without_lead');
     } else if (
       isAdUtm(d.utmSource, d.utmMedium) ||
       (d.sourceId !== null && adSources.has(d.sourceId))
     ) {
       channel = 'ad';
-      adKey = d.utmCampaign || d.utmMedium || d.utmContent ? `utm:${utmKey(d)}` : null;
+      // UTM → объявление Meta: тогда лид, расход и превью собираются в одной строке креатива.
+      const hit = meta?.fromUtm(d.utmCampaign, d.utmMedium, d.utmContent) ?? null;
+      if (hit) {
+        adId = hit.id;
+        adKey = hit.id;
+        metaHit = hit;
+      } else adKey = d.utmCampaign || d.utmMedium || d.utmContent ? `utm:${utmKey(d)}` : null;
     } else {
       channel = 'other';
     }
@@ -210,9 +256,10 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
       channel,
       adKey,
       adId,
-      adName: channel === 'ad' && !wardSrc ? d.utmContent : null,
-      campaignName: channel === 'ad' && !wardSrc ? d.utmCampaign : null,
-      adsetName: channel === 'ad' && !wardSrc ? d.utmMedium : null,
+      adName: channel === 'ad' ? (metaHit?.name ?? (wardSrc ? null : d.utmContent)) : null,
+      campaignName:
+        channel === 'ad' ? (metaHit?.campaignName ?? (wardSrc ? null : d.utmCampaign)) : null,
+      adsetName: channel === 'ad' ? (metaHit?.adsetName ?? (wardSrc ? null : d.utmMedium)) : null,
       postId: wardSrc?.postId ?? null,
       wardLeadId: null,
       dealId: d.id,

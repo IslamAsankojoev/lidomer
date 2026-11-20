@@ -43,6 +43,8 @@ import { MetricsRepository, preliminaryFrom } from './metrics.repository';
 import { InsightsRepository } from './insights.repository';
 import { ReconciliationService } from './reconciliation.service';
 import { buildTimeline } from './timeline';
+import { PREVIEWS_BUCKET, Storage } from '../common/storage';
+import { ENV, type Env } from '../config/env';
 
 const periodQuery = new ZodPipe(periodSchema);
 const periodWithChannel = z
@@ -62,7 +64,12 @@ export class MetricsController {
     @Inject(ReconciliationService) private readonly reconciliation: ReconciliationService,
     @Inject(MembershipRepository) private readonly membership: MembershipRepository,
     @Inject(InsightsRepository) private readonly insights: InsightsRepository,
-  ) {}
+    @Inject(ENV) env: Env,
+  ) {
+    this.storage = new Storage(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  }
+
+  private readonly storage: Storage;
 
   private async timezone(workspaceId: string): Promise<string> {
     const [ws] = await this.db
@@ -244,10 +251,21 @@ export class MetricsController {
     @Query(periodQuery) p: { from: string; to: string },
   ) {
     const meta = await this.repo.metaConnected(ws.workspaceId);
-    const [items, counts] = await Promise.all([
+    const [rows, counts] = await Promise.all([
       this.repo.creatives(ws.workspaceId, p.from, p.to, meta),
       this.repo.counts(ws.workspaceId, p.from, p.to, meta),
     ]);
+    // Превью — подписанные ссылки одним запросом к Storage (бакет закрытый).
+    const urls = await this.storage
+      .signedUrls(
+        PREVIEWS_BUCKET,
+        rows.flatMap((r) => (r.previewPath ? [r.previewPath] : [])),
+      )
+      .catch(() => new Map<string, string>());
+    const items = rows.map(({ previewPath, ...r }) => ({
+      ...r,
+      previewUrl: (previewPath && urls.get(previewPath)) ?? null,
+    }));
     return { items, spendCurrency: counts.spendCurrency };
   }
 

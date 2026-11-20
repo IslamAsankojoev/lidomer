@@ -1,6 +1,6 @@
 import { metaAdAccounts, metaAds, metaAdsets, metaCampaigns, metaInsightsDaily } from '@lidomer/db';
 import { DEFAULT_TIMEZONE, currencyDigits, shiftDay, toDayKey } from '@lidomer/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { HttpError } from '../../common/http';
 import { maskSecret } from '../../common/secret-box';
@@ -196,8 +196,8 @@ export function createMetaAdapter(deps: MetaAdapterDeps = {}): SourceAdapter<Met
             fields: 'id,campaign_id,name,status,optimization_goal,destination_type',
           });
           const ads = await api.getAll(`/${accountId}/ads`, adSchema, {
-            fields:
-              'id,name,campaign_id,adset_id,status,effective_status,created_time,creative{id,thumbnail_url,image_url}',
+            // Миниатюра 600×600: по умолчанию Meta отдаёт 64×64, в галерее она размыта.
+            fields: `id,name,campaign_id,adset_id,status,effective_status,created_time,creative.thumbnail_width(${PREVIEW_SIZE}).thumbnail_height(${PREVIEW_SIZE}){id,thumbnail_url,image_url}`,
           });
           if (campaigns.length)
             await ctx.db
@@ -236,33 +236,57 @@ export function createMetaAdapter(deps: MetaAdapterDeps = {}): SourceAdapter<Met
                 target: [metaAdsets.workspaceId, metaAdsets.id],
                 set: excludedSet(metaAdsets, ['workspaceId', 'id']),
               });
-          for (const ad of ads) {
-            const previewPath = await copyPreview(ctx.workspaceId, ad, deps);
+          // Превью: качаем только новые креативы (имя файла — объявление, креатив и размер),
+          // параллельно по 8: на синхронизацию у tick меньше минуты.
+          const known = new Map(
+            (
+              await ctx.db
+                .select({ id: metaAds.id, previewPath: metaAds.previewPath })
+                .from(metaAds)
+                .where(eq(metaAds.workspaceId, ctx.workspaceId))
+            ).map((a) => [a.id, a.previewPath]),
+          );
+          const previews = await mapLimit(ads, 8, async (ad) => {
+            const base = previewBase(ctx.workspaceId, ad);
+            const have = known.get(ad.id);
+            if (have?.startsWith(`${base}.`)) return have;
+            return copyPreview(base, ad, deps);
+          });
+          for (let k = 0; k < ads.length; k += 200) {
+            const chunk = ads.slice(k, k + 200);
             await ctx.db
               .insert(metaAds)
-              .values({
-                workspaceId: ctx.workspaceId,
-                id: ad.id,
-                accountId,
-                campaignId: ad.campaign_id,
-                adsetId: ad.adset_id,
-                name: ad.name,
-                status: ad.status ?? null,
-                effectiveStatus: ad.effective_status ?? null,
-                creativeId: ad.creative?.id ?? null,
-                previewPath,
-                createdTime: ad.created_time ? new Date(ad.created_time) : null,
-              })
+              .values(
+                chunk.map((ad, n) => ({
+                  workspaceId: ctx.workspaceId,
+                  id: ad.id,
+                  accountId,
+                  campaignId: ad.campaign_id,
+                  adsetId: ad.adset_id,
+                  name: ad.name,
+                  status: ad.status ?? null,
+                  effectiveStatus: ad.effective_status ?? null,
+                  creativeId: ad.creative?.id ?? null,
+                  // Не скопировалось — остаётся прежняя копия (coalesce ниже).
+                  previewPath: previews[k + n] ?? null,
+                  createdTime: ad.created_time ? new Date(ad.created_time) : null,
+                })),
+              )
               .onConflictDoUpdate({
                 target: [metaAds.workspaceId, metaAds.id],
-                // Если превью скопировать не удалось — старую копию не затираем.
-                set: excludedSet(metaAds, [
-                  'workspaceId',
-                  'id',
-                  ...(previewPath ? [] : ['previewPath']),
-                ]),
+                set: {
+                  ...excludedSet(metaAds, ['workspaceId', 'id', 'previewPath']),
+                  previewPath: sql`coalesce(excluded.preview_path, ${metaAds.previewPath})`,
+                },
               });
           }
+          // Прежние копии заменённых превью больше не нужны.
+          const stale = ads.flatMap((ad, n) => {
+            const old = known.get(ad.id);
+            return old && previews[n] && old !== previews[n] ? [old] : [];
+          });
+          if (stale.length && deps.storage)
+            await deps.storage.remove(PREVIEWS_BUCKET, stale).catch(() => undefined);
           records += campaigns.length + adsets.length + ads.length;
         }
         return { records };
@@ -320,9 +344,35 @@ export function createMetaAdapter(deps: MetaAdapterDeps = {}): SourceAdapter<Met
   };
 }
 
+/** Размер превью, который запрашиваем у Meta; входит в имя файла — смена размера перекачает всё. */
+const PREVIEW_SIZE = 600;
+
+/** Путь копии превью без расширения: объявление + креатив + размер. */
+export function previewBase(workspaceId: string, ad: z.infer<typeof adSchema>): string {
+  return `${workspaceId}/${ad.id}-${ad.creative?.id ?? 'none'}-${PREVIEW_SIZE}`;
+}
+
+/** Обработать элементы не более чем по `limit` одновременно, сохранив порядок результатов. */
+export async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]!);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
 /** Копия превью в Storage: ссылки Meta временные. Ошибка копирования не роняет синхронизацию. */
 async function copyPreview(
-  workspaceId: string,
+  base: string,
   ad: z.infer<typeof adSchema>,
   deps: MetaAdapterDeps,
 ): Promise<string | null> {
@@ -334,7 +384,7 @@ async function copyPreview(
     if (!res.ok) return null;
     const type = res.headers.get('content-type') ?? 'image/jpeg';
     const ext = type.includes('png') ? 'png' : 'jpg';
-    const path = `${workspaceId}/${ad.id}.${ext}`;
+    const path = `${base}.${ext}`;
     await deps.storage.upload(PREVIEWS_BUCKET, path, await res.arrayBuffer(), type);
     return path;
   } catch {
