@@ -14,6 +14,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import {
+  type Recipient,
+  recipientSchema,
   type ReportInput,
   reportInputSchema,
   type ReportPreviewRequest,
@@ -104,12 +106,10 @@ export class ReportsController {
   async test(
     @CurrentWorkspace() ws: WorkspaceContext,
     @Param('id', idParam) id: string,
-    @Body(new ZodPipe(z.object({ chatId: z.string(), threadId: z.string().nullable() })))
-    body: { chatId: string; threadId: string | null },
+    @Body(new ZodPipe(recipientSchema)) body: Recipient,
   ) {
-    if (!this.telegram.configured) throw new BadRequestException('Бот Telegram не настроен');
-    if (!(await this.telegram.chatBelongs(ws.workspaceId, body.chatId)))
-      throw new BadRequestException('Чат не подключён');
+    // Канал подключён и чат принадлежит компании.
+    await this.reports.assertRecipient(ws.workspaceId, body);
     const runId = await this.reports.createTestRun(ws.workspaceId, id);
     try {
       await this.reports.processRun(runId, body);
@@ -118,6 +118,13 @@ export class ReportsController {
     }
     const [run] = await this.reports.runs(ws.workspaceId, id);
     return run;
+  }
+
+  /** Куда можно отправить отчёт: Telegram и WhatsApp одним списком. */
+  @Get('reports/targets')
+  @RequirePermission('reports:read')
+  targets(@CurrentWorkspace() ws: WorkspaceContext) {
+    return this.reports.targets(ws.workspaceId);
   }
 
   @Get('reports/runs')

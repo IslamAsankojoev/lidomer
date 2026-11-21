@@ -1,10 +1,24 @@
 import { z } from 'zod';
-import { reportConfigSchema, reportScheduleSchema, reportTemplateSchema } from '../reports';
+import { integrationStatusSchema } from '../integrations';
+import {
+  deliveryChannelSchema,
+  reportConfigSchema,
+  reportScheduleSchema,
+  reportTemplateSchema,
+} from '../reports';
 
-export const recipientSchema = z.object({
-  chatId: z.string(),
-  threadId: z.string().nullable(),
-});
+/** Получатель отчёта: канал и чат. У WhatsApp тем нет — threadId всегда null. */
+export const recipientSchema = z
+  .object({
+    // У получателей, сохранённых до WhatsApp, канала нет — это Telegram.
+    channel: deliveryChannelSchema.default('telegram'),
+    chatId: z.string().min(1),
+    threadId: z.string().nullable(),
+  })
+  .refine((r) => r.channel !== 'green_api' || r.threadId === null, {
+    message: 'У групп WhatsApp нет тем',
+    path: ['threadId'],
+  });
 export type Recipient = z.infer<typeof recipientSchema>;
 
 export const reportInputSchema = z.object({
@@ -53,6 +67,8 @@ export const telegramChatsResponseSchema = z.object({
 });
 
 export const deliverySchema = z.object({
+  // Доставки до WhatsApp — все в Telegram.
+  channel: deliveryChannelSchema.default('telegram'),
   chatId: z.string(),
   threadId: z.string().nullable(),
   ok: z.boolean(),
@@ -123,3 +139,74 @@ export const reportPreviewResponseSchema = z.object({
   caption: z.string(),
 });
 export type ReportPreviewResponse = z.infer<typeof reportPreviewResponseSchema>;
+
+/** Хост Green API из консоли: только https на green-api.com / greenapi.com, без пути и порта. */
+const GREEN_HOST_RE = /^([a-z0-9-]+\.)*(green-api|greenapi)\.com$/i;
+const GREEN_HOST_MESSAGE = 'Адрес из консоли Green API, например https://1234.api.greenapi.com';
+export const greenApiHostSchema = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/\/+$/, ''))
+  .refine((v) => {
+    let u: URL;
+    try {
+      u = new URL(v);
+    } catch {
+      return false;
+    }
+    return (
+      u.protocol === 'https:' &&
+      !u.username &&
+      !u.password &&
+      !u.port &&
+      u.pathname === '/' &&
+      !u.search &&
+      !u.hash &&
+      // Без лишнего в исходной строке: URL сам «съедает» пустые ? и #.
+      v.toLowerCase() === `https://${u.hostname}` &&
+      GREEN_HOST_RE.test(u.hostname)
+    );
+  }, GREEN_HOST_MESSAGE);
+
+export const connectGreenApiRequestSchema = z.object({
+  apiUrl: greenApiHostSchema,
+  mediaUrl: greenApiHostSchema,
+  idInstance: z
+    .string()
+    .trim()
+    .regex(/^\d{4,20}$/, 'idInstance — число из консоли Green API'),
+  apiTokenInstance: z.string().trim().min(20, 'apiTokenInstance — длинный токен из консоли'),
+});
+export type ConnectGreenApiRequest = z.infer<typeof connectGreenApiRequestSchema>;
+
+export const whatsappGroupSchema = z.object({ id: z.string(), name: z.string() });
+export type WhatsappGroup = z.infer<typeof whatsappGroupSchema>;
+
+export const whatsappStatusSchema = z.object({
+  status: integrationStatusSchema,
+  state: z.string().nullable(),
+  phone: z.string().nullable(),
+  idInstance: z.string().nullable(),
+  maskedToken: z.string().nullable(),
+  groups: z.array(whatsappGroupSchema),
+  groupsUpdatedAt: z.string().nullable(),
+  lastError: z.string().nullable(),
+});
+export type WhatsappStatus = z.infer<typeof whatsappStatusSchema>;
+
+/** Куда можно отправить отчёт — группы и темы Telegram и группы WhatsApp одним списком. */
+export const reportTargetSchema = z.object({
+  channel: deliveryChannelSchema,
+  chatId: z.string(),
+  threadId: z.string().nullable(),
+  chatTitle: z.string(),
+  topicTitle: z.string().nullable(),
+  active: z.boolean(),
+});
+export type ReportTarget = z.infer<typeof reportTargetSchema>;
+export const reportTargetsResponseSchema = z.object({
+  telegram: z.object({ configured: z.boolean() }),
+  whatsapp: z.object({ status: integrationStatusSchema }),
+  targets: z.array(reportTargetSchema),
+});
+export type ReportTargetsResponse = z.infer<typeof reportTargetsResponseSchema>;

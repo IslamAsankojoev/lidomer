@@ -1,6 +1,12 @@
 'use client';
 
-import { can, type ReportDto } from '@lidomer/shared';
+import {
+  can,
+  DELIVERY_CHANNEL_LABELS,
+  DELIVERY_CHANNELS,
+  type DeliveryChannel,
+  type ReportDto,
+} from '@lidomer/shared';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { AlertTriangle, Plus, Send } from 'lucide-react';
@@ -16,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useWorkspace } from '@/lib/workspace';
 import { cn } from '@/lib/utils';
 import { ReportBuilder, scheduleText } from './report-builder';
+import { channelCounts, targetKey, targetLabel } from './targets';
 import { useReportActions, useReportsData } from './use-reports';
 
 const STATUS: Record<string, { label: string; variant: 'secondary' | 'destructive' | 'outline' }> =
@@ -33,23 +40,20 @@ const sel =
 export default function ReportsPage() {
   const { workspace } = useWorkspace();
   const canManage = can(workspace.role, 'reports:manage');
-  const { reports, chats, runs } = useReportsData();
+  const { reports, targets: targetsQ, runs } = useReportsData();
   const actions = useReportActions();
   const [editing, setEditing] = useState<ReportDto | null | 'new'>(null);
   const [testTarget, setTestTarget] = useState('');
-  const chatList = chats.data?.chats ?? [];
-  const targets = chatList
-    .filter((c) => c.active)
-    .flatMap((c) => [
-      { key: `${c.id}|`, label: c.title, chatId: c.id, threadId: null as string | null },
-      ...c.topics.map((t) => ({
-        key: `${c.id}|${t.id}`,
-        label: `${c.title} › ${t.name}`,
-        chatId: c.id,
-        threadId: t.id,
-      })),
-    ]);
-  const target = targets.find((t) => t.key === testTarget) ?? targets[0];
+  const allTargets = targetsQ.data?.targets ?? [];
+  const targets = allTargets.filter((t) => t.active);
+  const target = targets.find((t) => targetKey(t) === testTarget) ?? targets[0];
+  // Есть куда отправлять: активная группа Telegram или подключённый WhatsApp.
+  const hasChannel =
+    targets.some((t) => t.channel === 'telegram') || targetsQ.data?.whatsapp.status === 'connected';
+  const nameOf = (d: { channel: DeliveryChannel; chatId: string; threadId: string | null }) => {
+    const t = allTargets.find((x) => targetKey(x) === targetKey(d));
+    return `${DELIVERY_CHANNEL_LABELS[d.channel]} · ${t ? targetLabel(t) : 'группа'}`;
+  };
 
   return (
     // Колонка по центру, как «Интеграции» и «Настройки».
@@ -59,14 +63,14 @@ export default function ReportsPage() {
         description="Отправляются по расписанию в Telegram и WhatsApp — картинкой или PDF"
         actions={
           canManage && (
-            <Button onClick={() => setEditing('new')} disabled={!chats.data?.configured}>
+            <Button onClick={() => setEditing('new')} disabled={!hasChannel}>
               <Plus className="size-4" /> Создать отчёт
             </Button>
           )
         }
       />
 
-      {chats.data && !targets.length && (
+      {targetsQ.data && !hasChannel && (
         <Alert>
           <AlertTriangle aria-hidden />
           <AlertDescription>
@@ -115,7 +119,7 @@ export default function ReportsPage() {
                 <div>
                   <CardTitle className="text-base">{r.name}</CardTitle>
                   <CardDescription>
-                    {scheduleText(r.schedule)} · получателей {r.recipients.length} ·{' '}
+                    {scheduleText(r.schedule)} · {channelCounts(r.recipients)} ·{' '}
                     {r.config.format === 'pdf' ? 'PDF' : 'картинка'}
                   </CardDescription>
                 </div>
@@ -145,14 +149,21 @@ export default function ReportsPage() {
                         <select
                           aria-label="Куда отправить тест"
                           className={sel}
-                          value={target?.key}
+                          value={target ? targetKey(target) : ''}
                           onChange={(e) => setTestTarget(e.target.value)}
                         >
-                          {targets.map((t) => (
-                            <option key={t.key} value={t.key}>
-                              {t.label}
-                            </option>
-                          ))}
+                          {DELIVERY_CHANNELS.map((ch) => {
+                            const list = targets.filter((t) => t.channel === ch);
+                            return list.length ? (
+                              <optgroup key={ch} label={DELIVERY_CHANNEL_LABELS[ch]}>
+                                {list.map((t) => (
+                                  <option key={targetKey(t)} value={targetKey(t)}>
+                                    {targetLabel(t)}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ) : null;
+                          })}
                         </select>
                         <Button
                           size="sm"
@@ -161,8 +172,11 @@ export default function ReportsPage() {
                             target &&
                             actions.test.mutate({
                               id: r.id,
-                              chatId: target.chatId,
-                              threadId: target.threadId,
+                              to: {
+                                channel: target.channel,
+                                chatId: target.chatId,
+                                threadId: target.threadId,
+                              },
                             })
                           }
                         >
@@ -267,16 +281,22 @@ export default function ReportsPage() {
                         Открыть PDF
                       </a>
                     )}
+                    {run.deliveries.length > 0 && (
+                      <ul className="flex flex-col gap-0.5 text-xs">
+                        {run.deliveries.map((d) => (
+                          <li
+                            key={targetKey(d)}
+                            className={d.ok ? 'text-muted-foreground' : 'text-destructive'}
+                          >
+                            <span className="break-words">
+                              {nameOf(d)} — {d.ok ? '✓' : d.error}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     {run.dataNote && <p className="text-xs text-destructive">⚠ {run.dataNote}</p>}
                     {run.error && <p className="text-xs text-destructive">{run.error}</p>}
-                    {run.deliveries.some((d) => !d.ok) && (
-                      <p className="text-xs text-destructive">
-                        {run.deliveries
-                          .filter((d) => !d.ok)
-                          .map((d) => d.error)
-                          .join('; ')}
-                      </p>
-                    )}
                   </li>
                 );
               })}
@@ -290,7 +310,8 @@ export default function ReportsPage() {
           key={editing === 'new' ? 'new' : editing.id}
           onClose={() => setEditing(null)}
           report={editing === 'new' ? null : editing}
-          chats={chatList}
+          targets={allTargets}
+          whatsappConnected={targetsQ.data?.whatsapp.status === 'connected'}
         />
       )}
     </div>

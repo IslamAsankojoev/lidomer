@@ -12,9 +12,10 @@ import {
   type ReportInput,
   reportInputSchema,
   type ReportTemplate,
+  type ReportTarget,
   TEMPLATE_DEFAULTS,
-  type TelegramChatDto,
 } from '@lidomer/shared';
+import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { ReportPreview } from './report-preview';
+import { channelCounts, targetKey, targetLabel } from './targets';
 import { useReportActions } from './use-reports';
 
 const STEPS = ['Что', 'Когда', 'Куда', 'Проверка'] as const;
@@ -68,12 +70,15 @@ const fromTemplate = (t: ReportTemplate): ReportInput => ({
 export function ReportBuilder({
   onClose,
   report,
-  chats,
+  targets,
+  whatsappConnected,
 }: {
   onClose: () => void;
   report: ReportDto | null;
-  chats: TelegramChatDto[];
+  targets: ReportTarget[];
+  whatsappConnected: boolean;
 }) {
+  const [waQuery, setWaQuery] = useState('');
   const { save } = useReportActions();
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState(0);
@@ -92,17 +97,31 @@ export function ReportBuilder({
   );
   const [timesText, setTimesText] = useState(v.schedule.times.join(', '));
   const set = (patch: Partial<ReportInput>) => setV((x) => ({ ...x, ...patch }));
-  const recipientKey = (chatId: string, threadId: string | null) => `${chatId}|${threadId ?? ''}`;
-  const chosen = new Set(v.recipients.map((r) => recipientKey(r.chatId, r.threadId)));
-
-  const toggleRecipient = (chatId: string, threadId: string | null) => {
-    const k = recipientKey(chatId, threadId);
+  const chosen = new Set(v.recipients.map(targetKey));
+  const toggleRecipient = (t: ReportTarget) => {
+    const k = targetKey(t);
     set({
       recipients: chosen.has(k)
-        ? v.recipients.filter((r) => recipientKey(r.chatId, r.threadId) !== k)
-        : [...v.recipients, { chatId, threadId }],
+        ? v.recipients.filter((r) => targetKey(r) !== k)
+        : [...v.recipients, { channel: t.channel, chatId: t.chatId, threadId: t.threadId }],
     });
   };
+  const tgTargets = targets.filter((t) => t.channel === 'telegram');
+  const waTargets = targets.filter((t) => t.channel === 'green_api');
+  const waShown = waTargets.filter((t) =>
+    t.chatTitle.toLowerCase().includes(waQuery.trim().toLowerCase()),
+  );
+  const check = (t: ReportTarget, label: string, className?: string) => (
+    <label key={targetKey(t)} className={cn('flex items-center gap-2', className)}>
+      <input
+        type="checkbox"
+        checked={chosen.has(targetKey(t))}
+        onChange={() => toggleRecipient(t)}
+        disabled={!t.active && !chosen.has(targetKey(t))}
+      />
+      <span className="min-w-0 truncate">{label}</span>
+    </label>
+  );
 
   const submit = () => {
     const times = timesText.split(/[,\s]+/).filter(Boolean);
@@ -127,7 +146,7 @@ export function ReportBuilder({
         <DialogHeader>
           <DialogTitle>{report ? 'Изменить отчёт' : 'Новый отчёт'}</DialogTitle>
           <DialogDescription>
-            {report ? report.name : 'В Telegram — картинкой или PDF с подписью'}
+            {report ? report.name : 'В Telegram и WhatsApp — картинкой или PDF'}
           </DialogDescription>
         </DialogHeader>
         {/* key: новый шаг открывается с начала, а не с места прокрутки прошлого. */}
@@ -318,41 +337,75 @@ export function ReportBuilder({
           )}
 
           {step === 2 && (
-            <div className="flex flex-col gap-2 text-sm">
-              {!chats.length ? (
-                <p className="text-muted-foreground">
-                  Нет подключённых групп — добавьте бота в группу и отправьте там команду из блока
-                  «Получатели».
-                </p>
-              ) : (
-                chats.map((c) => (
-                  <div key={c.id} className="flex flex-col gap-1 rounded-lg border p-2">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={chosen.has(recipientKey(c.id, null))}
-                        onChange={() => toggleRecipient(c.id, null)}
-                        disabled={!c.active}
+            <div className="flex flex-col gap-5 text-sm">
+              <section className="flex flex-col gap-2">
+                <h3 className="font-medium">Telegram</h3>
+                {!tgTargets.length ? (
+                  <p className="text-muted-foreground">
+                    Нет подключённых групп — добавьте бота в группу на странице{' '}
+                    <Link href="/integrations" className="underline underline-offset-2">
+                      «Интеграции»
+                    </Link>
+                    .
+                  </p>
+                ) : (
+                  tgTargets
+                    .filter((t) => !t.threadId)
+                    .map((c) => (
+                      <div key={targetKey(c)} className="flex flex-col gap-1 rounded-lg border p-2">
+                        {check(c, c.chatTitle)}
+                        {!c.active && (
+                          <span className="ml-6 text-xs text-destructive">
+                            бот удалён из группы
+                          </span>
+                        )}
+                        {tgTargets
+                          .filter((t) => t.chatId === c.chatId && t.threadId)
+                          .map((t) => check(t, `Тема: ${t.topicTitle}`, 'ml-6'))}
+                      </div>
+                    ))
+                )}
+              </section>
+              <section className="flex flex-col gap-2">
+                <h3 className="font-medium">WhatsApp</h3>
+                {!whatsappConnected && !waTargets.length ? (
+                  <p className="text-muted-foreground">
+                    WhatsApp не подключён —{' '}
+                    <Link href="/integrations" className="underline underline-offset-2">
+                      подключить на «Интеграциях»
+                    </Link>
+                    .
+                  </p>
+                ) : !waTargets.length ? (
+                  <p className="text-muted-foreground">
+                    У номера пока нет групп — добавьте номер в группу и нажмите «Обновить группы» на
+                    «Интеграциях».
+                  </p>
+                ) : (
+                  <>
+                    {!whatsappConnected && (
+                      <p className="text-xs text-destructive">
+                        Номер WhatsApp не подключён — отчёты туда сейчас не уходят.
+                      </p>
+                    )}
+                    {waTargets.length > 8 && (
+                      <Input
+                        placeholder="Поиск группы"
+                        aria-label="Поиск группы WhatsApp"
+                        value={waQuery}
+                        onChange={(e) => setWaQuery(e.target.value)}
                       />
-                      {c.title}
-                      {!c.active && (
-                        <span className="text-xs text-destructive">бот удалён из группы</span>
+                    )}
+                    <div className="flex flex-col gap-1 rounded-lg border p-2">
+                      {waShown.length ? (
+                        waShown.map((t) => check(t, targetLabel(t)))
+                      ) : (
+                        <span className="text-muted-foreground">Ничего не нашлось</span>
                       )}
-                    </label>
-                    {c.topics.map((t) => (
-                      <label key={t.id} className="ml-6 flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={chosen.has(recipientKey(c.id, t.id))}
-                          onChange={() => toggleRecipient(c.id, t.id)}
-                          disabled={!c.active}
-                        />
-                        Тема: {t.name}
-                      </label>
-                    ))}
-                  </div>
-                ))
-              )}
+                    </div>
+                  </>
+                )}
+              </section>
             </div>
           )}
 
@@ -375,7 +428,7 @@ export function ReportBuilder({
                 <dt className="text-muted-foreground">Куда</dt>
                 <dd>
                   {v.recipients.length
-                    ? `${v.recipients.length} получ.`
+                    ? channelCounts(v.recipients, 'summary')
                     : 'никуда — выберите на шаге 3'}
                 </dd>
                 <dt className="text-muted-foreground">Формат</dt>

@@ -17,7 +17,9 @@ import {
   reportPeriodRange,
   type ReportRunDto,
   reportScheduleSchema,
+  type Recipient,
   type ReportPreviewRequest,
+  type ReportTargetsResponse,
   type ReportPreviewResponse,
   type ReportSnapshot,
   reportPageCount,
@@ -37,6 +39,7 @@ import { MembershipRepository } from '../workspaces/membership.repository';
 import { buildCaption } from './caption';
 import { signRun } from './signing';
 import { TelegramService } from './telegram.service';
+import { WhatsappService } from './whatsapp.service';
 import { pngToPdf } from './pdf';
 
 const REPORTS_BUCKET = 'reports';
@@ -66,6 +69,7 @@ export class ReportsService {
     @Inject(InsightsRepository) private readonly insights: InsightsRepository,
     @Inject(TelegramService) private readonly telegram: TelegramService,
     @Inject(MembershipRepository) private readonly membership: MembershipRepository,
+    @Inject(WhatsappService) private readonly whatsapp: WhatsappService,
   ) {
     this.storage = new Storage(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
   }
@@ -107,7 +111,7 @@ export class ReportsService {
         enabled: r.enabled,
         recipients: recips
           .filter((x) => x.reportId === r.id)
-          .map((x) => ({ chatId: x.chatId, threadId: x.threadId })),
+          .map((x) => ({ channel: x.channel, chatId: x.chatId, threadId: x.threadId })),
         lastRun: last
           ? {
               id: last.id,
@@ -127,11 +131,10 @@ export class ReportsService {
     input: ReportInput,
     id?: string,
   ): Promise<string> {
-    for (const r of input.recipients) {
-      if (!(await this.telegram.chatBelongs(workspaceId, r.chatId))) {
-        throw new BadRequestException('Получатель не подключён к компании');
-      }
-    }
+    // Дубли убираем; каждый получатель — по своему каналу.
+    const key = (r: Recipient) => `${r.channel}|${r.chatId}|${r.threadId ?? ''}`;
+    const recipients = [...new Map(input.recipients.map((r) => [key(r), r])).values()];
+    for (const r of recipients) await this.assertRecipient(workspaceId, r);
     return this.db.transaction(async (tx) => {
       let reportId = id;
       const values = {
@@ -158,11 +161,12 @@ export class ReportsService {
           .returning({ id: reports.id });
         reportId = row!.id;
       }
-      if (input.recipients.length) {
+      if (recipients.length) {
         await tx.insert(reportRecipients).values(
-          input.recipients.map((r) => ({
+          recipients.map((r) => ({
             workspaceId,
             reportId: reportId!,
+            channel: r.channel,
             chatId: r.chatId,
             threadId: r.threadId,
           })),
@@ -170,6 +174,55 @@ export class ReportsService {
       }
       return reportId!;
     });
+  }
+
+  /** Чат принадлежит компании по своему каналу; иначе 400. */
+  async assertRecipient(workspaceId: string, r: Recipient): Promise<void> {
+    const ok =
+      r.channel === 'telegram'
+        ? this.telegram.configured && (await this.telegram.chatBelongs(workspaceId, r.chatId))
+        : await this.whatsapp.chatBelongs(workspaceId, r.chatId);
+    if (!ok) throw new BadRequestException('Получатель не подключён к компании');
+  }
+
+  /** Куда можно отправить: группы и темы Telegram и группы WhatsApp одним списком. */
+  async targets(workspaceId: string): Promise<ReportTargetsResponse> {
+    const [chats, wa] = await Promise.all([
+      this.telegram.configured ? this.telegram.listChats(workspaceId) : Promise.resolve([]),
+      this.whatsapp.status(workspaceId),
+    ]);
+    return {
+      telegram: { configured: this.telegram.configured },
+      whatsapp: { status: wa.status },
+      targets: [
+        ...chats.flatMap((c) => [
+          {
+            channel: 'telegram' as const,
+            chatId: c.id,
+            threadId: null,
+            chatTitle: c.title,
+            topicTitle: null,
+            active: c.active,
+          },
+          ...c.topics.map((t) => ({
+            channel: 'telegram' as const,
+            chatId: c.id,
+            threadId: t.id,
+            chatTitle: c.title,
+            topicTitle: t.name,
+            active: c.active,
+          })),
+        ]),
+        ...wa.groups.map((g) => ({
+          channel: 'green_api' as const,
+          chatId: g.id,
+          threadId: null,
+          chatTitle: g.name,
+          topicTitle: null,
+          active: wa.status === 'connected',
+        })),
+      ],
+    };
   }
 
   async remove(workspaceId: string, id: string): Promise<void> {
@@ -277,10 +330,7 @@ export class ReportsService {
    * Собрать снимок, нарисовать картинку, отправить. 'wait' — данные ещё не обновились,
    * повторить позже (не дольше 15 минут после слота). Тестовая отправка не ждёт.
    */
-  async processRun(
-    runId: string,
-    testChat?: { chatId: string; threadId: string | null },
-  ): Promise<ProcessResult> {
+  async processRun(runId: string, testTarget?: Recipient): Promise<ProcessResult> {
     const [row] = await this.db
       .select({ run: reportRuns, report: reports, ws: workspaces })
       .from(reportRuns)
@@ -369,23 +419,39 @@ export class ReportsService {
       );
     }
 
-    const recipients = testChat
-      ? [testChat]
+    const recipients: Recipient[] = testTarget
+      ? [testTarget]
       : await this.db
-          .select({ chatId: reportRecipients.chatId, threadId: reportRecipients.threadId })
+          .select({
+            channel: reportRecipients.channel,
+            chatId: reportRecipients.chatId,
+            threadId: reportRecipients.threadId,
+          })
           .from(reportRecipients)
           .where(eq(reportRecipients.reportId, report.id));
     const pdfName = `${report.name} ${snapshot.period.from === snapshot.period.to ? snapshot.period.from : `${snapshot.period.from}_${snapshot.period.to}`}.pdf`;
     const deliveries = [];
     for (const r of recipients) {
+      // Каждому получателю — своим каналом; ошибка одного не мешает остальным.
       try {
-        const tg = this.telegram.client();
-        if (pdf) await tg.sendDocument(r.chatId, pdf, pdfName, caption, r.threadId);
-        else await tg.sendPhoto(r.chatId, png, caption, r.threadId);
+        if (r.channel === 'green_api') {
+          // PNG с именем report.png придёт фото, PDF — документом.
+          await this.whatsapp.sendReport(
+            ws.id,
+            r.chatId,
+            pdf ?? png,
+            pdf ? pdfName : 'report.png',
+            caption,
+          );
+        } else {
+          const tg = this.telegram.client();
+          if (pdf) await tg.sendDocument(r.chatId, pdf, pdfName, caption, r.threadId);
+          else await tg.sendPhoto(r.chatId, png, caption, r.threadId);
+        }
         deliveries.push({ ...r, ok: true, error: null });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (err instanceof HttpError && err.status === 403)
+        if (r.channel === 'telegram' && err instanceof HttpError && err.status === 403)
           await this.telegram.markInactive(r.chatId);
         deliveries.push({ ...r, ok: false, error: msg });
       }

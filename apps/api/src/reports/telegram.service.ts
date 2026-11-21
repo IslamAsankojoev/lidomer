@@ -89,7 +89,7 @@ export class TelegramService {
     if (!ws) {
       await this.safeSend(
         String(m.chat.id),
-        'Код не подошёл. Скопируйте команду из кабинета: Отчёты → Получатели.',
+        'Код не подошёл. Скопируйте команду из кабинета: Интеграции → Telegram.',
         thread,
       );
       return;
@@ -177,6 +177,14 @@ export class TelegramService {
     for (const chatId of chats) await this.safeSend(chatId, text, null);
   }
 
+  /** Сообщение в группу алертов компании. Без персональных данных. */
+  async alert(workspaceId: string, text: string): Promise<void> {
+    if (!this.configured) return;
+    const chatId = await this.alertChatOf(workspaceId);
+    if (!chatId) return;
+    await this.safeSend(chatId, text, null);
+  }
+
   /** Алерт: интеграция в статусе «Ошибка» или «Нужно переподключить». Без персональных данных. */
   async integrationAlert(
     workspaceId: string,
@@ -184,14 +192,10 @@ export class TelegramService {
     reauth: boolean,
     message: string,
   ): Promise<void> {
-    if (!this.configured) return;
-    const chatId = await this.alertChatOf(workspaceId);
-    if (!chatId) return;
     const title = reauth ? 'нужно переподключить' : 'ошибка синхронизации';
-    await this.safeSend(
-      chatId,
+    await this.alert(
+      workspaceId,
       `⚠️ ${INTEGRATION_LABELS[type]}: ${title}.\n${message}\n\nОтчёты уйдут с пометкой о данных, нули не подставляются.`,
-      null,
     );
   }
 }
