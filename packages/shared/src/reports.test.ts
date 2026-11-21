@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dueSlot, reportPeriodRange, slotUtc } from './reports';
+import { creativesOnPage, dueSlot, reportPageCount, reportPeriodRange, slotUtc } from './reports';
 
 const TZ = 'Asia/Bishkek';
 
@@ -69,5 +69,16 @@ describe('период отчёта', () => {
       from: '2026-12-01',
       to: '2026-12-31',
     });
+  });
+});
+
+describe('страницы файла отчёта', () => {
+  it('первая — цифры, дальше по 8 креативов', () => {
+    expect([0, 1, 8, 9].map(reportPageCount)).toEqual([1, 2, 2, 3]);
+  });
+  it('креативы страниц 2 и 3', () => {
+    const list = Array.from({ length: 11 }, (_, i) => i);
+    expect(creativesOnPage(list, 2)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(creativesOnPage(list, 3)).toEqual([8, 9, 10]);
   });
 });

@@ -1,14 +1,18 @@
 import {
   change,
+  CREATIVES_PER_PAGE,
+  creativesOnPage,
   formatApproxSom,
   formatMoney,
   type ReportSnapshot,
+  reportPageCount,
   toMajor,
 } from '@lidomer/shared';
 
 /**
- * Картинка отчёта для Telegram. Один шаблон на двоих: сервер рисует из него PNG (next/og, Satori),
+ * Страницы отчёта. Один шаблон на двоих: сервер рисует из него PNG (next/og, Satori),
  * конструктор отчётов — предпросмотр в браузере. Только flexbox и инлайн-стили — то, что понимает Satori.
+ * Страница 1 — главные цифры (это и PNG), страницы 2… — креативы (только в PDF).
  */
 export const REPORT_IMAGE_SIZE = { width: 1080, height: 1350 } as const;
 
@@ -60,16 +64,17 @@ function Tile({
       style={{
         display: 'flex',
         flexDirection: 'column',
+        justifyContent: 'center',
         flex: 1,
         background: C.card,
         borderRadius: 24,
-        padding: 28,
-        gap: 6,
+        padding: 32,
+        gap: 10,
       }}
     >
-      <div style={{ fontSize: 26, color: C.muted }}>{label}</div>
-      <div style={{ fontSize: 56, fontWeight: 700, color: C.text }}>{value}</div>
-      <div style={{ display: 'flex', fontSize: 24, color: C.muted, gap: 12 }}>
+      <div style={{ fontSize: 28, color: C.muted }}>{label}</div>
+      <div style={{ fontSize: 72, fontWeight: 700, color: C.text }}>{value}</div>
+      <div style={{ display: 'flex', fontSize: 26, color: C.muted, gap: 12 }}>
         {sub ? <span>{sub}</span> : null}
         {delta !== null && delta !== undefined ? (
           <span style={{ color: delta >= 0 ? C.good : C.bad }}>
@@ -81,11 +86,53 @@ function Tile({
   );
 }
 
-/**
- * PNG отчёта для Telegram. Рисуется по снимку цифр запуска, который отдаёт api по подписанной ссылке:
- * картинка и подпись всегда показывают одни и те же цифры.
- */
+const frame = {
+  display: 'flex',
+  flexDirection: 'column',
+  width: '100%',
+  height: '100%',
+  background: C.bg,
+  padding: 56,
+  gap: 28,
+  fontFamily: 'Inter',
+  color: C.text,
+} as const;
 
+/** Подвал каждой страницы: несвежие данные, источники, маркетолог, номер страницы. */
+export function ReportFooter({
+  s,
+  page,
+  pages,
+}: {
+  s: ReportSnapshot;
+  page: number;
+  pages: number;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        marginTop: 'auto',
+        gap: 24,
+        fontSize: 22,
+        color: C.muted,
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 6 }}>
+        {s.dataNote ? <div style={{ color: C.bad }}>{`⚠ ${s.dataNote}`}</div> : null}
+        <div>{`Источники: ${s.sources.map((x) => `${x.name} ${x.at ?? '—'}`).join(' · ')}`}</div>
+        {s.marketer ? <div>{`Маркетолог — ${s.marketer}`}</div> : null}
+      </div>
+      {pages > 1 ? <div style={{ whiteSpace: 'nowrap' }}>{`стр. ${page} из ${pages}`}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * Страница 1: главные цифры. Плитки растягиваются по высоте — пустой полосы над подвалом нет.
+ * Рисуется по снимку цифр запуска, который отдаёт api по подписанной ссылке.
+ */
 export function ReportImage({ s }: { s: ReportSnapshot }) {
   const c = s.current;
   const b = s.before;
@@ -93,19 +140,7 @@ export function ReportImage({ s }: { s: ReportSnapshot }) {
   const spend = money(s, c.spendMinor);
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        width: '100%',
-        height: '100%',
-        background: C.bg,
-        padding: 56,
-        gap: 28,
-        fontFamily: 'Inter',
-        color: C.text,
-      }}
-    >
+    <div style={frame}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ fontSize: 28, color: C.muted }}>{s.workspaceName}</div>
         <div style={{ fontSize: 52, fontWeight: 700 }}>{s.reportName}</div>
@@ -114,17 +149,19 @@ export function ReportImage({ s }: { s: ReportSnapshot }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 20 }}>
-        <Tile
-          label="Лиды с рекламы"
-          value={int(c.adLeads)}
-          delta={change(c.adLeads ?? null, b.adLeads ?? null)}
-        />
-        <Tile label="Цена за лид" value={cpl.main} sub={cpl.som} />
-      </div>
-      <div style={{ display: 'flex', gap: 20 }}>
-        <Tile label="Расход" value={spend.main} sub={spend.som} />
-        <Tile label="Продажи" value={int(c.sales)} sub={`с телефоном ${int(c.withPhone)}`} />
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 20 }}>
+        <div style={{ display: 'flex', flex: 1, gap: 20 }}>
+          <Tile
+            label="Лиды с рекламы"
+            value={int(c.adLeads)}
+            delta={change(c.adLeads ?? null, b.adLeads ?? null)}
+          />
+          <Tile label="Цена за лид" value={cpl.main} sub={cpl.som} />
+        </div>
+        <div style={{ display: 'flex', flex: 1, gap: 20 }}>
+          <Tile label="Расход" value={spend.main} sub={spend.som} />
+          <Tile label="Продажи" value={int(c.sales)} sub={`с телефоном ${int(c.withPhone)}`} />
+        </div>
       </div>
 
       {s.blocks.includes('channels') ? (
@@ -132,77 +169,6 @@ export function ReportImage({ s }: { s: ReportSnapshot }) {
           <span>{`Органика ${int(c.organicLeads)}`}</span>
           <span>{`Direct без источника ${int(c.directUnknownLeads)}`}</span>
           <span>{`Другие ${int(c.otherLeads)}`}</span>
-        </div>
-      ) : null}
-
-      {s.blocks.includes('creatives') && s.creatives.length ? (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            background: C.card,
-            borderRadius: 24,
-            padding: 28,
-            gap: 18,
-          }}
-        >
-          <div style={{ fontSize: 28, fontWeight: 700 }}>Лучшие креативы</div>
-          {s.creatives.slice(0, 3).map((cr, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-              {cr.previewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={cr.previewUrl}
-                  width={72}
-                  height={72}
-                  style={{ borderRadius: 12, objectFit: 'cover' }}
-                  alt=""
-                />
-              ) : (
-                <div
-                  style={{
-                    display: 'flex',
-                    width: 72,
-                    height: 72,
-                    borderRadius: 12,
-                    background: '#22304a',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 30,
-                    color: C.muted,
-                  }}
-                >
-                  {i + 1}
-                </div>
-              )}
-              <div
-                style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
-              >
-                <div
-                  style={{
-                    fontSize: 28,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {cr.title}
-                </div>
-                <div
-                  style={{
-                    fontSize: 22,
-                    color: C.muted,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {cr.subtitle ?? ' '}
-                </div>
-              </div>
-              <div style={{ fontSize: 30, fontWeight: 700 }}>{int(cr.leads)}</div>
-            </div>
-          ))}
         </div>
       ) : null}
 
@@ -217,19 +183,132 @@ export function ReportImage({ s }: { s: ReportSnapshot }) {
         </div>
       ) : null}
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          marginTop: 'auto',
-          gap: 6,
-          fontSize: 22,
-          color: C.muted,
-        }}
-      >
-        {s.dataNote ? <div style={{ color: C.bad }}>{`⚠ ${s.dataNote}`}</div> : null}
-        <div>{`Источники: ${s.sources.map((x) => `${x.name} ${x.at ?? '—'}`).join(' · ')}`}</div>
+      <ReportFooter s={s} page={1} pages={reportPageCount(s.creatives.length)} />
+    </div>
+  );
+}
+
+const ellipsis = {
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+} as const;
+
+/** Колонки цифр креатива: ширина фиксирована, цифры не переносятся. */
+const COLS = [
+  { label: 'Лиды', width: 80 },
+  { label: 'Расход', width: 160 },
+  { label: 'Цена лида', width: 130 },
+  { label: 'Продажи', width: 104 },
+] as const;
+
+function Num({ width, main, sub }: { width: number; main: string; sub?: string | null }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        width,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <div style={{ fontSize: 28, fontWeight: 700 }}>{main}</div>
+      {sub ? <div style={{ fontSize: 20, color: C.muted }}>{sub}</div> : null}
+    </div>
+  );
+}
+
+/** Страница 2…: креативы за период, по 8 на страницу. Расход null — «—» (нет данных Meta), не ноль. */
+export function ReportCreativesPage({ s, page }: { s: ReportSnapshot; page: number }) {
+  const pages = reportPageCount(s.creatives.length);
+  const offset = (page - 2) * CREATIVES_PER_PAGE;
+  const cash = (minor: number | null) => {
+    if (minor === null || !s.spendCurrency) return { main: '—', som: null };
+    const m = money(s, minor);
+    return { main: m.main, som: m.som };
+  };
+  return (
+    <div style={frame}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ fontSize: 24, color: C.muted, ...ellipsis }}>
+          {`${s.workspaceName} · ${s.reportName} · ${periodLabel(s.period.from, s.period.to)}`}
+        </div>
+        <div style={{ fontSize: 44, fontWeight: 700 }}>Креативы</div>
       </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 16, padding: '0 16px', fontSize: 20, color: C.muted }}>
+          <div style={{ display: 'flex', flex: 1 }} />
+          {COLS.map((col) => (
+            <div
+              key={col.label}
+              style={{ display: 'flex', justifyContent: 'flex-end', width: col.width }}
+            >
+              {col.label}
+            </div>
+          ))}
+        </div>
+        {creativesOnPage(s.creatives, page).map((cr, i) => {
+          const spend = cash(cr.spendMinor);
+          const cpl = cash(cr.cplMinor);
+          return (
+            <div
+              key={i}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                height: 108,
+                gap: 16,
+                padding: '10px 16px 10px 10px',
+                background: C.card,
+                borderRadius: 18,
+              }}
+            >
+              {cr.previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={cr.previewUrl}
+                  width={88}
+                  height={88}
+                  style={{ borderRadius: 12, objectFit: 'cover' }}
+                  alt=""
+                />
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    width: 88,
+                    height: 88,
+                    borderRadius: 12,
+                    background: '#22304a',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 30,
+                    color: C.muted,
+                  }}
+                >
+                  {offset + i + 1}
+                </div>
+              )}
+              <div
+                style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+              >
+                <div style={{ fontSize: 26, ...ellipsis }}>{cr.title}</div>
+                <div style={{ fontSize: 20, color: C.muted, ...ellipsis }}>
+                  {cr.subtitle ?? ' '}
+                </div>
+              </div>
+              <Num width={COLS[0].width} main={int(cr.leads)} />
+              <Num width={COLS[1].width} main={spend.main} sub={spend.som} />
+              <Num width={COLS[2].width} main={cpl.main} />
+              <Num width={COLS[3].width} main={int(cr.sales)} />
+            </div>
+          );
+        })}
+      </div>
+
+      <ReportFooter s={s} page={page} pages={pages} />
     </div>
   );
 }

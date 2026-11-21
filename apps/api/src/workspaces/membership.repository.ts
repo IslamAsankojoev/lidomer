@@ -39,6 +39,15 @@ export class MembershipRepository {
       .orderBy(workspaces.name);
   }
 
+  /** Email участника — только пока он в команде компании; иначе null. */
+  async memberEmail(workspaceId: string, userId: string): Promise<string | null> {
+    const rows = await this.db.execute<{ email: string | null }>(sql`
+      select u.email from auth.users u
+      join members m on m.user_id = u.id and m.workspace_id = ${workspaceId}
+      where u.id = ${userId} limit 1`);
+    return rows[0]?.email ?? null;
+  }
+
   async listMembers(workspaceId: string): Promise<Member[]> {
     const rows = await this.db
       .select({

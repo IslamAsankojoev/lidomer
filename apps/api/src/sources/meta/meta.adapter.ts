@@ -3,6 +3,7 @@ import { DEFAULT_TIMEZONE, currencyDigits, shiftDay, toDayKey } from '@lidomer/s
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { HttpError } from '../../common/http';
+import { mapLimit } from '../../common/map-limit';
 import { maskSecret } from '../../common/secret-box';
 import { PREVIEWS_BUCKET, type Storage } from '../../common/storage';
 import { excludedSet } from '../../common/upsert';
@@ -350,24 +351,6 @@ const PREVIEW_SIZE = 600;
 /** Путь копии превью без расширения: объявление + креатив + размер. */
 export function previewBase(workspaceId: string, ad: z.infer<typeof adSchema>): string {
   return `${workspaceId}/${ad.id}-${ad.creative?.id ?? 'none'}-${PREVIEW_SIZE}`;
-}
-
-/** Обработать элементы не более чем по `limit` одновременно, сохранив порядок результатов. */
-export async function mapLimit<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const out = new Array<R>(items.length);
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const i = next++;
-      out[i] = await fn(items[i]!);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return out;
 }
 
 /** Копия превью в Storage: ссылки Meta временные. Ошибка копирования не роняет синхронизацию. */

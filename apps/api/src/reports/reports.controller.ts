@@ -53,10 +53,11 @@ export class ReportsController {
   @HttpCode(200)
   @RequirePermission('reports:read')
   preview(
+    @CurrentUser() user: AuthUser,
     @CurrentWorkspace() ws: WorkspaceContext,
     @Body(new ZodPipe(reportPreviewRequestSchema)) body: ReportPreviewRequest,
   ): Promise<ReportPreviewResponse> {
-    return this.reports.preview(ws.workspaceId, body);
+    return this.reports.preview(ws.workspaceId, user.id, body);
   }
 
   @Post('reports')
