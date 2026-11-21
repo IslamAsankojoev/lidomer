@@ -68,6 +68,7 @@ export const reportRunSchema = z.object({
   caption: z.string().nullable(),
   dataNote: z.string().nullable(),
   imageUrl: z.string().nullable(),
+  pdfUrl: z.string().nullable(),
   deliveries: z.array(deliverySchema),
   error: z.string().nullable(),
   sentAt: z.string().nullable(),
@@ -93,6 +94,9 @@ export const reportSnapshotSchema = z.object({
       subtitle: z.string().nullable(),
       leads: z.number(),
       sales: z.number(),
+      /** null — нет данных Meta по объявлению (не ноль). Старые снимки поля не имеют. */
+      spendMinor: z.number().nullable().default(null),
+      cplMinor: z.number().nullable().default(null),
       previewUrl: z.string().nullable(),
     }),
   ),
@@ -106,6 +110,8 @@ export const reportSnapshotSchema = z.object({
     .nullable(),
   sources: z.array(z.object({ name: z.string(), at: z.string().nullable(), ok: z.boolean() })),
   dataNote: z.string().nullable(),
+  /** Email того, кто запланировал отчёт, пока он в команде компании. */
+  marketer: z.string().nullable().default(null),
 });
 export type ReportSnapshot = z.infer<typeof reportSnapshotSchema>;
 
@@ -115,7 +121,5 @@ export type ReportPreviewRequest = z.infer<typeof reportPreviewRequestSchema>;
 export const reportPreviewResponseSchema = z.object({
   snapshot: reportSnapshotSchema,
   caption: z.string(),
-  /** Продолжение подписи отдельным сообщением, если не влезла в 1024 символа. */
-  rest: z.string().nullable(),
 });
 export type ReportPreviewResponse = z.infer<typeof reportPreviewResponseSchema>;

@@ -55,6 +55,8 @@ export const reports = pgTable(
     schedule: jsonb('schedule').notNull(),
     enabled: boolean('enabled').notNull().default(true),
     createdBy: uuid('created_by'),
+    /** Кто последним сохранил отчёт (создал или поменял) — «Маркетолог» внизу отчёта. */
+    updatedBy: uuid('updated_by'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -103,6 +105,8 @@ export const reportRuns = pgTable(
     /** Цифры, по которым нарисована картинка и подпись. */
     snapshot: jsonb('snapshot'),
     imagePath: text('image_path'),
+    /** PDF рядом с PNG в бакете reports — только у отчётов в формате PDF. */
+    pdfPath: text('pdf_path'),
     caption: text('caption'),
     /** «данные Ward на 09:05» — если отправили, не дождавшись свежих данных. */
     dataNote: text('data_note'),

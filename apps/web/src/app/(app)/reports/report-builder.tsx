@@ -2,7 +2,7 @@
 
 import {
   REPORT_BLOCK_LABELS,
-  REPORT_BLOCKS,
+  REPORT_EDITABLE_BLOCKS,
   REPORT_FORMAT_LABELS,
   REPORT_FORMATS,
   type ReportFormat,
@@ -77,8 +77,18 @@ export function ReportBuilder({
   const { save } = useReportActions();
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState(0);
+  // Блок «Креативы» больше ничего не решает (креативы — в PDF): у старых отчётов убираем его,
+  // и при сохранении он не попадёт в базу.
   const [v, setV] = useState<ReportInput>(() =>
-    report ? { ...report } : fromTemplate('day_summary'),
+    report
+      ? {
+          ...report,
+          config: {
+            ...report.config,
+            blocks: report.config.blocks.filter((b) => b !== 'creatives'),
+          },
+        }
+      : fromTemplate('day_summary'),
   );
   const [timesText, setTimesText] = useState(v.schedule.times.join(', '));
   const set = (patch: Partial<ReportInput>) => setV((x) => ({ ...x, ...patch }));
@@ -209,13 +219,13 @@ export function ReportBuilder({
                 </ToggleGroup>
                 <span className="text-xs text-muted-foreground">
                   {v.config.format === 'pdf'
-                    ? 'Файлом: удобно сохранить и переслать. Подпись — та же.'
-                    : 'Картинкой прямо в чате, с подписью.'}
+                    ? 'Файл: первая страница — главные цифры, дальше все креативы с превью, лидами и расходом.'
+                    : 'Картинка прямо в чате: главные цифры. Креативы — только в PDF.'}
                 </span>
               </div>
               <fieldset className="flex flex-col gap-1 text-sm">
                 <legend className="mb-1">Блоки</legend>
-                {REPORT_BLOCKS.map((b) => (
+                {REPORT_EDITABLE_BLOCKS.map((b) => (
                   <label key={b} className="flex items-center gap-2">
                     <input
                       type="checkbox"

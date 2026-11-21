@@ -3,12 +3,13 @@
 import {
   type ReportConfig,
   REPORT_FORMAT_LABELS,
+  reportPageCount,
   reportPreviewResponseSchema,
 } from '@lidomer/shared';
 import { useQuery } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { REPORT_IMAGE_SIZE, ReportImage } from '@/components/report-image';
+import { REPORT_IMAGE_SIZE, ReportCreativesPage, ReportImage } from '@/components/report-image';
 import { ErrorState, LoadingState } from '@/components/state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApi } from '@/lib/api';
@@ -44,7 +45,7 @@ function ScaledImage({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Предпросмотр отчёта: те же цифры, картинка и подпись, что уйдут в Telegram, — за период
+ * Предпросмотр отчёта: те же цифры, страницы и подпись, что уйдут в Telegram, — за период
  * «как если бы отчёт ушёл сейчас». Ничего не сохраняет и не отправляет.
  */
 export function ReportPreview({ name, config }: { name: string; config: ReportConfig }) {
@@ -70,16 +71,13 @@ export function ReportPreview({ name, config }: { name: string; config: ReportCo
             className="w-full rounded-lg bg-card"
             style={{ aspectRatio: `${REPORT_IMAGE_SIZE.width} / ${REPORT_IMAGE_SIZE.height}` }}
           />
-          <div className="flex flex-col gap-2 p-1">
-            {['w-1/2', 'w-full', 'w-5/6', 'w-2/3'].map((w) => (
-              <Skeleton key={w} className={`h-3.5 bg-card ${w}`} />
-            ))}
-          </div>
+          <Skeleton className="m-1 h-3.5 w-1/2 bg-card" />
         </div>
       </LoadingState>
     );
   if (q.isError) return <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />;
-  const { snapshot, caption, rest } = q.data;
+  const { snapshot, caption } = q.data;
+  const pages = reportPageCount(snapshot.creatives.length);
   const period =
     snapshot.period.from === snapshot.period.to
       ? snapshot.period.from
@@ -102,8 +100,13 @@ export function ReportPreview({ name, config }: { name: string; config: ReportCo
         <ScaledImage>
           <ReportImage s={snapshot} />
         </ScaledImage>
+        {/* PDF: дальше — страницы креативов, как в файле. */}
+        {Array.from({ length: pages - 1 }, (_, i) => (
+          <ScaledImage key={i + 2}>
+            <ReportCreativesPage s={snapshot} page={i + 2} />
+          </ScaledImage>
+        ))}
         <p className="px-1 text-sm whitespace-pre-wrap">{caption}</p>
-        {rest && <p className="px-1 text-sm whitespace-pre-wrap text-muted-foreground">{rest}</p>}
       </div>
     </div>
   );

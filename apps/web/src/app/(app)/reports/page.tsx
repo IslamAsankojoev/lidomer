@@ -338,6 +338,16 @@ export default function ReportsPage() {
                         />
                       </a>
                     )}
+                    {run.pdfUrl && (
+                      <a
+                        href={run.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary underline-offset-2 hover:underline"
+                      >
+                        Открыть PDF
+                      </a>
+                    )}
                     {run.dataNote && <p className="text-xs text-destructive">⚠ {run.dataNote}</p>}
                     {run.error && <p className="text-xs text-destructive">{run.error}</p>}
                     {run.deliveries.some((d) => !d.ok) && (

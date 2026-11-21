@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { reportSnapshotSchema } from '@lidomer/shared';
+import { reportPageCount, reportSnapshotSchema } from '@lidomer/shared';
 import { ImageResponse } from 'next/og';
-import { REPORT_IMAGE_SIZE, ReportImage } from '@/components/report-image';
+import { REPORT_IMAGE_SIZE, ReportCreativesPage, ReportImage } from '@/components/report-image';
 import { env } from '@/lib/env';
 
 export const runtime = 'nodejs';
@@ -35,7 +35,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ runId: string }
   if (!res.ok)
     return new Response('Нет доступа к снимку', { status: res.status === 401 ? 401 : 404 });
   const s = reportSnapshotSchema.parse(await res.json());
-  return new ImageResponse(<ReportImage s={s} />, {
+  // Страница файла: 1 — главные цифры, 2… — креативы (PDF).
+  const raw = url.searchParams.get('page') ?? '1';
+  const page = /^\d+$/.test(raw) ? Number(raw) : NaN;
+  if (!(page >= 1 && page <= reportPageCount(s.creatives.length)))
+    return new Response('Нет такой страницы', { status: 404 });
+  const el = page === 1 ? <ReportImage s={s} /> : <ReportCreativesPage s={s} page={page} />;
+  return new ImageResponse(el, {
     ...REPORT_IMAGE_SIZE,
     fonts: await fontsPromise,
   });

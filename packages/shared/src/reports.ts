@@ -31,6 +31,24 @@ export const REPORT_BLOCK_LABELS: Record<ReportBlock, string> = {
   creatives: 'Лучшие креативы',
   funnel: 'Воронка WARD → Bitrix24',
 };
+/**
+ * Блоки, которые выбирают в конструкторе. `creatives` остался в enum только ради сохранённых
+ * отчётов: креативы теперь решает формат (PDF — все креативы, PNG — без них).
+ */
+export const REPORT_EDITABLE_BLOCKS = REPORT_BLOCKS.filter(
+  (b): b is Exclude<ReportBlock, 'creatives'> => b !== 'creatives',
+);
+
+export const CREATIVES_PER_PAGE = 8;
+/** Страниц в файле отчёта: первая — главные цифры, дальше креативы. */
+export function reportPageCount(creatives: number): number {
+  return 1 + Math.ceil(creatives / CREATIVES_PER_PAGE);
+}
+/** Креативы страницы `page` (с 2-й). */
+export function creativesOnPage<T>(list: T[], page: number): T[] {
+  const start = (page - 2) * CREATIVES_PER_PAGE;
+  return list.slice(start, start + CREATIVES_PER_PAGE);
+}
 
 /** Как отправлять: картинкой (фото в чате) или PDF-файлом (документ). */
 export const REPORT_FORMATS = ['png', 'pdf'] as const;
@@ -69,7 +87,7 @@ export const TEMPLATE_DEFAULTS: Record<
 > = {
   day_summary: {
     name: 'Итоги дня',
-    config: { format: 'png', period: 'yesterday', blocks: ['kpis', 'channels', 'creatives'] },
+    config: { format: 'png', period: 'yesterday', blocks: ['kpis', 'channels'] },
     schedule: { times: ['09:00'], weekdays: [], monthDays: [] },
   },
   day_pulse: {
@@ -79,20 +97,12 @@ export const TEMPLATE_DEFAULTS: Record<
   },
   week: {
     name: 'Неделя',
-    config: {
-      format: 'png',
-      period: 'prev_week',
-      blocks: ['kpis', 'channels', 'creatives', 'funnel'],
-    },
+    config: { format: 'pdf', period: 'prev_week', blocks: ['kpis', 'channels', 'funnel'] },
     schedule: { times: ['10:00'], weekdays: [1], monthDays: [] },
   },
   month: {
     name: 'Месяц',
-    config: {
-      format: 'png',
-      period: 'prev_month',
-      blocks: ['kpis', 'channels', 'creatives', 'funnel'],
-    },
+    config: { format: 'pdf', period: 'prev_month', blocks: ['kpis', 'channels', 'funnel'] },
     schedule: { times: ['10:00'], weekdays: [], monthDays: [1] },
   },
   custom: {

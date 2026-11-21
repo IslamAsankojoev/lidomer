@@ -2,7 +2,6 @@ import { BadRequestException, Inject, Injectable, Logger, NotFoundException } fr
 import {
   type Db,
   integrations,
-  metaAds,
   reportRecipients,
   reportRuns,
   reports,
@@ -21,17 +20,20 @@ import {
   type ReportPreviewRequest,
   type ReportPreviewResponse,
   type ReportSnapshot,
+  reportPageCount,
   shiftDay,
   slotUtc,
   toDayKey,
 } from '@lidomer/shared';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { HttpError } from '../common/http';
+import { mapLimit } from '../common/map-limit';
 import { PREVIEWS_BUCKET, Storage } from '../common/storage';
 import { ENV, type Env } from '../config/env';
 import { DB } from '../db/db.module';
 import { InsightsRepository } from '../reconciliation/insights.repository';
 import { MetricsRepository } from '../reconciliation/metrics.repository';
+import { MembershipRepository } from '../workspaces/membership.repository';
 import { buildCaption } from './caption';
 import { signRun } from './signing';
 import { TelegramService } from './telegram.service';
@@ -63,6 +65,7 @@ export class ReportsService {
     @Inject(MetricsRepository) private readonly metrics: MetricsRepository,
     @Inject(InsightsRepository) private readonly insights: InsightsRepository,
     @Inject(TelegramService) private readonly telegram: TelegramService,
+    @Inject(MembershipRepository) private readonly membership: MembershipRepository,
   ) {
     this.storage = new Storage(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
   }
@@ -137,6 +140,8 @@ export class ReportsService {
         config: input.config,
         schedule: input.schedule,
         enabled: input.enabled,
+        // Кто последним сохранил — тот и запланировал: «Маркетолог» внизу отчёта.
+        updatedBy: actorId,
       };
       if (reportId) {
         const upd = await tx
@@ -185,10 +190,10 @@ export class ReportsService {
       )
       .orderBy(desc(reportRuns.createdAt))
       .limit(30);
-    const images = await this.storage
+    const files = await this.storage
       .signedUrls(
         REPORTS_BUCKET,
-        rows.flatMap((r) => (r.imagePath ? [r.imagePath] : [])),
+        rows.flatMap((r) => [r.imagePath, r.pdfPath].filter((x): x is string => !!x)),
       )
       .catch(() => new Map<string, string>());
     return rows.map((r) => ({
@@ -199,7 +204,8 @@ export class ReportsService {
       status: r.status,
       caption: r.caption,
       dataNote: r.dataNote,
-      imageUrl: (r.imagePath && images.get(r.imagePath)) ?? null,
+      imageUrl: (r.imagePath && files.get(r.imagePath)) ?? null,
+      pdfUrl: (r.pdfPath && files.get(r.pdfPath)) ?? null,
       deliveries: r.deliveries as ReportRunDto['deliveries'],
       error: r.error,
       sentAt: r.sentAt?.toISOString() ?? null,
@@ -246,7 +252,11 @@ export class ReportsService {
    * Предпросмотр в конструкторе: снимок цифр «как если бы отчёт ушёл сейчас» и подпись.
    * Ничего не сохраняет и никуда не отправляет.
    */
-  async preview(workspaceId: string, input: ReportPreviewRequest): Promise<ReportPreviewResponse> {
+  async preview(
+    workspaceId: string,
+    actorId: string,
+    input: ReportPreviewRequest,
+  ): Promise<ReportPreviewResponse> {
     const [ws] = await this.db.select().from(workspaces).where(eq(workspaces.id, workspaceId));
     if (!ws) throw new NotFoundException('Компания не найдена');
     const sources = await this.db
@@ -256,8 +266,9 @@ export class ReportsService {
     const active = sources.filter(
       (s) => s.status !== 'disabled' && s.status !== 'not_connected' && CADENCE_MS[s.type],
     );
-    const snapshot = await this.snapshot(ws, input, new Date(), active, null);
-    return { snapshot, ...buildCaption(snapshot) };
+    // Предпросмотр — от имени текущего пользователя: сохранив, он и станет тем, кто запланировал.
+    const snapshot = await this.snapshot(ws, input, new Date(), active, null, actorId);
+    return { snapshot, caption: buildCaption(snapshot) };
   }
 
   // ---------- Запуск ----------
@@ -309,22 +320,54 @@ export class ReportsService {
           .join(', ')
       : null;
 
-    const snapshot = await this.snapshot(ws, report, run.scheduledFor, active, dataNote);
-    const { caption, rest } = buildCaption(snapshot);
+    const snapshot = await this.snapshot(
+      ws,
+      report,
+      run.scheduledFor,
+      active,
+      dataNote,
+      report.updatedBy ?? report.createdBy,
+    );
+    const caption = buildCaption(snapshot);
     await this.db
       .update(reportRuns)
       .set({ snapshot, caption, dataNote })
       .where(eq(reportRuns.id, run.id));
 
-    // Картинка: web рисует её по снимку; копия — в Storage для истории.
+    // Страницы рисует web по снимку: 1 — главные цифры (это и PNG), дальше — креативы (только PDF).
+    // Одна подпись ссылки на все страницы.
     const { exp, sig } = signRun(this.env.CRON_SECRET, run.id);
     const webOrigin = this.env.WEB_ORIGIN.split(',')[0]!.trim().replace(/\/$/, '');
-    const imgRes = await fetch(`${webOrigin}/api/og/report/${run.id}?exp=${exp}&sig=${sig}`);
-    if (!imgRes.ok)
-      throw new HttpError(imgRes.status, `Картинка отчёта не нарисовалась (${imgRes.status})`);
-    const png = await imgRes.arrayBuffer();
+    const page = async (n: number) => {
+      const res = await fetch(
+        `${webOrigin}/api/og/report/${run.id}?page=${n}&exp=${exp}&sig=${sig}`,
+      );
+      if (!res.ok)
+        throw new HttpError(res.status, `Страница ${n} отчёта не нарисовалась (${res.status})`);
+      return res.arrayBuffer();
+    };
+    const png = await page(1);
     const imagePath = `${ws.id}/${run.id}.png`;
     await this.storage.upload(REPORTS_BUCKET, imagePath, png, 'image/png');
+
+    const { format } = reportConfigSchema.parse(report.config);
+    let pdf: Uint8Array | null = null;
+    let pdfPath: string | null = null;
+    if (format === 'pdf') {
+      const more = Array.from(
+        { length: reportPageCount(snapshot.creatives.length) - 1 },
+        (_, i) => i + 2,
+      );
+      const pages = [png, ...(await mapLimit(more, 3, page))];
+      pdf = await pngToPdf(pages, `${report.name} · ${snapshot.period.from}`);
+      pdfPath = `${ws.id}/${run.id}.pdf`;
+      await this.storage.upload(
+        REPORTS_BUCKET,
+        pdfPath,
+        new Uint8Array(pdf).buffer,
+        'application/pdf',
+      );
+    }
 
     const recipients = testChat
       ? [testChat]
@@ -332,10 +375,6 @@ export class ReportsService {
           .select({ chatId: reportRecipients.chatId, threadId: reportRecipients.threadId })
           .from(reportRecipients)
           .where(eq(reportRecipients.reportId, report.id));
-    // PDF — та же картинка одной страницей, уходит файлом; в истории остаётся PNG.
-    const { format } = reportConfigSchema.parse(report.config);
-    const pdf =
-      format === 'pdf' ? await pngToPdf(png, `${report.name} · ${snapshot.period.from}`) : null;
     const pdfName = `${report.name} ${snapshot.period.from === snapshot.period.to ? snapshot.period.from : `${snapshot.period.from}_${snapshot.period.to}`}.pdf`;
     const deliveries = [];
     for (const r of recipients) {
@@ -343,7 +382,6 @@ export class ReportsService {
         const tg = this.telegram.client();
         if (pdf) await tg.sendDocument(r.chatId, pdf, pdfName, caption, r.threadId);
         else await tg.sendPhoto(r.chatId, png, caption, r.threadId);
-        if (rest) await tg.sendMessage(r.chatId, rest, r.threadId);
         deliveries.push({ ...r, ok: true, error: null });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -357,6 +395,7 @@ export class ReportsService {
       .update(reportRuns)
       .set({
         imagePath,
+        pdfPath,
         deliveries,
         status: !recipients.length
           ? 'failed'
@@ -393,49 +432,36 @@ export class ReportsService {
     slot: Date,
     sources: (typeof integrations.$inferSelect)[],
     dataNote: string | null,
+    marketerId: string | null,
   ): Promise<ReportSnapshot> {
     const config = reportConfigSchema.parse(report.config);
     const period = reportPeriodRange(config.period, toDayKey(slot, ws.timezone));
     const len = Math.round((Date.parse(period.to) - Date.parse(period.from)) / 86_400_000) + 1;
     const prev = { from: shiftDay(period.from, -len), to: shiftDay(period.from, -1) };
     const meta = await this.metrics.metaConnected(ws.id);
-    const [current, before, fx, creatives, funnel] = await Promise.all([
+    const [current, before, fx, creatives, funnel, marketer] = await Promise.all([
       this.metrics.counts(ws.id, period.from, period.to, meta),
       this.metrics.counts(ws.id, prev.from, prev.to, meta),
       this.metrics.fx(period.to),
-      config.blocks.includes('creatives')
+      // Креативы решает формат: PDF — все за период, PNG — без них.
+      config.format === 'pdf'
         ? this.metrics.creatives(ws.id, period.from, period.to, meta)
         : Promise.resolve([]),
       config.blocks.includes('funnel')
         ? this.insights.funnel(ws.id, period.from, period.to)
         : Promise.resolve(null),
+      marketerId ? this.membership.memberEmail(ws.id, marketerId) : Promise.resolve(null),
     ]);
-    const top = creatives.slice(0, 5);
-    const previews = top.length
-      ? await this.db
-          .select({ id: metaAds.id, path: metaAds.previewPath })
-          .from(metaAds)
-          .where(
-            and(
-              eq(metaAds.workspaceId, ws.id),
-              inArray(
-                metaAds.id,
-                top.map((c) => c.adKey),
-              ),
-            ),
-          )
-      : [];
+    const list = creatives
+      .filter((c) => c.leads > 0 || (c.spendMinor ?? 0) > 0)
+      .sort((a, b) => b.leads - a.leads || (b.spendMinor ?? 0) - (a.spendMinor ?? 0));
     const signed = await this.storage
       .signedUrls(
         PREVIEWS_BUCKET,
-        previews.flatMap((x) => (x.path ? [x.path] : [])),
+        list.flatMap((c) => (c.previewPath ? [c.previewPath] : [])),
         900,
       )
       .catch(() => new Map<string, string>());
-    const preview = (key: string) => {
-      const p = previews.find((x) => x.id === key)?.path;
-      return (p && signed.get(p)) ?? null;
-    };
     return {
       workspaceName: ws.name,
       reportName: report.name,
@@ -443,11 +469,12 @@ export class ReportsService {
       generatedAt: new Date().toISOString(),
       timezone: ws.timezone,
       blocks: config.blocks,
-      current: current as unknown as Record<string, number | null>,
-      before: before as unknown as Record<string, number | null>,
+      // Валюта — отдельным полем: в current/before только числа (иначе снимок не пройдёт схему).
+      current: numbers(current),
+      before: numbers(before),
       spendCurrency: current.spendCurrency,
       fxRate: fx?.rate ?? null,
-      creatives: top.map((c) => ({
+      creatives: list.map((c) => ({
         title:
           c.adName ??
           (/^\d{10,}$/.test(c.adKey)
@@ -456,7 +483,9 @@ export class ReportsService {
         subtitle: [c.campaignName, c.adsetName].filter(Boolean).join(' › ') || null,
         leads: c.leads,
         sales: c.sales,
-        previewUrl: preview(c.adKey),
+        spendMinor: c.spendMinor,
+        cplMinor: c.cplFactMinor,
+        previewUrl: (c.previewPath && signed.get(c.previewPath)) ?? null,
       })),
       funnel: funnel
         ? {
@@ -472,8 +501,16 @@ export class ReportsService {
         ok: s.status !== 'error' && s.status !== 'reauth_required',
       })),
       dataNote,
+      marketer,
     };
   }
+}
+
+/** Только числовые поля счётчиков — для снимка. */
+function numbers(c: object): Record<string, number | null> {
+  return Object.fromEntries(
+    Object.entries(c).filter(([, v]) => v === null || typeof v === 'number'),
+  ) as Record<string, number | null>;
 }
 
 /** Ближайший будущий слот (до 35 дней вперёд) — для «следующая отправка». */
