@@ -8,10 +8,17 @@ import { env } from '@/lib/env';
 export const runtime = 'nodejs';
 
 const dir = join(process.cwd(), 'assets/fonts');
+/**
+ * Satori хранит шрифты по имени семейства и для каждой толщины берёт из семейства один файл.
+ * Поэтому наборы Inter — разными семействами: основной «Inter» (латиница, цифры, `$`, `↑`),
+ * «Inter Cyrillic» — запасной для русских букв, той же толщины. С одним именем на оба набора
+ * `$` и `↑` рисовались квадратом, а жирный русский текст — обычным.
+ */
+const FAMILIES = { latin: 'Inter', cyrillic: 'Inter Cyrillic' } as const;
 const fontsPromise = Promise.all(
-  (['cyrillic', 'latin'] as const).flatMap((subset) =>
+  (['latin', 'cyrillic'] as const).flatMap((subset) =>
     ([400, 700] as const).map(async (weight) => ({
-      name: 'Inter',
+      name: FAMILIES[subset],
       data: await readFile(join(dir, `inter-${subset}-${weight}-normal.woff`)),
       weight,
       style: 'normal' as const,

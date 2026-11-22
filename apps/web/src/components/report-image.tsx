@@ -48,6 +48,44 @@ function money(
   };
 }
 
+/**
+ * Символы, которых нет в подключённых шрифтах Inter (`≈`, `→`): Satori рисует вместо них квадрат.
+ * Рисуем их линиями SVG — картинка не зависит от догрузки шрифтов из сети.
+ */
+const SYMBOLS: Record<string, string> = {
+  '≈': 'M4 9.5c2.7-2 5.3-2 8 0s5.3 2 8 0M4 15.5c2.7-2 5.3-2 8 0s5.3 2 8 0',
+  '→': 'M4 12h15M13 6l6 6-6 6',
+};
+
+/** Текст с `≈` и `→`, нарисованными SVG. Размер значка — по размеру шрифта. */
+function Txt({ children, size }: { children: string; size: number }) {
+  const parts = children.split(/(≈|→)/).filter(Boolean);
+  if (parts.length === 1 && !SYMBOLS[parts[0]!]) return <span>{children}</span>;
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', whiteSpace: 'pre' }}>
+      {parts.map((p, i) =>
+        SYMBOLS[p] ? (
+          <svg
+            key={i}
+            width={size * 0.8}
+            height={size * 0.8}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d={SYMBOLS[p]} />
+          </svg>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </span>
+  );
+}
+
 function Tile({
   label,
   value,
@@ -75,7 +113,7 @@ function Tile({
       <div style={{ fontSize: 28, color: C.muted }}>{label}</div>
       <div style={{ fontSize: 72, fontWeight: 700, color: C.text }}>{value}</div>
       <div style={{ display: 'flex', fontSize: 26, color: C.muted, gap: 12 }}>
-        {sub ? <span>{sub}</span> : null}
+        {sub ? <Txt size={26}>{sub}</Txt> : null}
         {delta !== null && delta !== undefined ? (
           <span style={{ color: delta >= 0 ? C.good : C.bad }}>
             {`${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta)}%`}
@@ -177,9 +215,9 @@ export function ReportImage({ s }: { s: ReportSnapshot }) {
           style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 26, color: C.muted }}
         >
           <span>{`WARD: переписок ${int(s.funnel.conversations)}`}</span>
-          <span>{`→ лидов ${int(s.funnel.wardLeads)}`}</span>
-          <span>{`→ сделок ${int(s.funnel.withDeal)}`}</span>
-          <span>{`→ продаж ${int(s.funnel.sales)}`}</span>
+          <Txt size={26}>{`→ лидов ${int(s.funnel.wardLeads)}`}</Txt>
+          <Txt size={26}>{`→ сделок ${int(s.funnel.withDeal)}`}</Txt>
+          <Txt size={26}>{`→ продаж ${int(s.funnel.sales)}`}</Txt>
         </div>
       ) : null}
 
@@ -214,7 +252,11 @@ function Num({ width, main, sub }: { width: number; main: string; sub?: string |
       }}
     >
       <div style={{ fontSize: 28, fontWeight: 700 }}>{main}</div>
-      {sub ? <div style={{ fontSize: 20, color: C.muted }}>{sub}</div> : null}
+      {sub ? (
+        <div style={{ display: 'flex', fontSize: 20, color: C.muted }}>
+          <Txt size={20}>{sub}</Txt>
+        </div>
+      ) : null}
     </div>
   );
 }
