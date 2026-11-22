@@ -12,6 +12,7 @@ import { ReportsService } from '../reports/reports.service';
 import { TelegramService } from '../reports/telegram.service';
 import { ReconciliationService } from '../reconciliation/reconciliation.service';
 import { JobQueue, jobMessageSchema } from './queue';
+import { Retention } from './retention';
 import { Watchdog } from './watchdog';
 
 /** Сколько раз повторять задачу, прежде чем убрать её в архив. */
@@ -49,6 +50,7 @@ export class JobRunner {
     @Inject(ReportsService) private readonly reports: ReportsService,
     @Inject(TelegramService) private readonly telegram: TelegramService,
     @Inject(Watchdog) private readonly watchdog: Watchdog,
+    @Inject(Retention) private readonly retention: Retention,
   ) {}
 
   async tick(budgetMs: number, now = new Date()): Promise<TickReport> {
@@ -61,6 +63,8 @@ export class JobRunner {
       rebuilt: 0,
     };
     await this.fx.ensureToday();
+    // Раз в сутки — очистка служебных таблиц; не больше 20 секунд, остальное — очереди.
+    await this.retention.runDaily(now, Math.min(Date.now() + 20_000, deadline - 25_000));
     // Отчёты, у которых наступило время: один запуск на слот — в очередь.
     const due = await this.reports.schedule(now);
     await this.queue.send(
