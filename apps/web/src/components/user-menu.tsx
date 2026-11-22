@@ -1,9 +1,7 @@
 'use client';
 
 import { ROLE_LABELS } from '@lidomer/shared';
-import { useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, LogOut } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,23 +13,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { supabaseBrowser } from '@/lib/supabase/client';
+import { useSignOut } from '@/lib/use-sign-out';
 import { useWorkspace } from '@/lib/workspace';
 
 /** `icon` — кружок в шапке телефона; `card` — карточка внизу бокового меню. */
 export function UserMenu({ variant = 'icon' }: { variant?: 'icon' | 'card' }) {
   const { workspace, workspaces, email, select } = useWorkspace();
-  const router = useRouter();
-  const queryClient = useQueryClient();
+  const signOut = useSignOut();
 
   const initial = (email ?? '?').slice(0, 1).toUpperCase();
-
-  const signOut = async () => {
-    await supabaseBrowser().auth.signOut();
-    queryClient.clear();
-    router.replace('/login');
-    router.refresh();
-  };
 
   return (
     <DropdownMenu>

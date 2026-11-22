@@ -2,7 +2,8 @@
 
 import { Suspense, type ReactNode } from 'react';
 import { AppShell, AppShellSkeleton } from '@/components/app-shell';
-import { EmptyState, ErrorState } from '@/components/state';
+import { CreateWorkspace } from '@/components/create-workspace';
+import { ErrorState } from '@/components/state';
 import { WorkspaceProvider } from '@/lib/workspace';
 
 function Centered({ children }: { children: ReactNode }) {
@@ -24,10 +25,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       )}
       empty={
         <Centered>
-          <EmptyState
-            title="Вы пока не участник ни одной компании"
-            description="Попросите владельца пригласить вас по email."
-          />
+          <CreateWorkspace />
         </Centered>
       }
     >

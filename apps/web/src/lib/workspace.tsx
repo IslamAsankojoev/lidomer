@@ -16,6 +16,15 @@ interface WorkspaceState {
 
 const WorkspaceContext = createContext<WorkspaceState | null>(null);
 
+/** Запомнить выбранную компанию (в том числе только что созданную — до загрузки /me). */
+export function selectWorkspace(id: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, id);
+  } catch {
+    /* выбор просто не запомнится */
+  }
+}
+
 function readStored(): string | null {
   try {
     return localStorage.getItem(STORAGE_KEY);
@@ -51,11 +60,7 @@ export function WorkspaceProvider({
       email: me.data.user.email,
       select: (id) => {
         setSelectedId(id);
-        try {
-          localStorage.setItem(STORAGE_KEY, id);
-        } catch {
-          /* выбор просто не запомнится */
-        }
+        selectWorkspace(id);
       },
     };
   }, [me.data, selectedId]);

@@ -14,6 +14,8 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  type CreateWorkspaceRequest,
+  createWorkspaceRequestSchema,
   type InviteMemberRequest,
   inviteMemberRequestSchema,
   type MeResponse,
@@ -61,6 +63,29 @@ export class WorkspacesController {
         logoUrl: logoPath ? this.storage.publicUrl(LOGOS_BUCKET, logoPath) : null,
       })),
     };
+  }
+
+  /**
+   * Своя компания — только если пользователь ещё ни в одной не состоит: иначе тупик после входа
+   * (ни компании, ни приглашения). Участникам компаний новые создавать нельзя.
+   */
+  @Post('workspaces')
+  async createWorkspace(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodPipe(createWorkspaceRequestSchema)) body: CreateWorkspaceRequest,
+  ): Promise<{ id: string }> {
+    const id = await this.membership.createWorkspaceWithOwner(user.id, body.name);
+    if (!id)
+      throw new ConflictException('Вы уже в команде компании — новую компанию создать нельзя');
+    await this.membership.audit({
+      workspaceId: id,
+      actorUserId: user.id,
+      action: 'workspace.create',
+      entityType: 'workspace',
+      entityId: id,
+      after: { name: body.name },
+    });
+    return { id };
   }
 
   /**

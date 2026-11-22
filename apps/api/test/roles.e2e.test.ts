@@ -27,7 +27,8 @@ const fakeIntegrations = {
 const SUPABASE_URL = 'https://test-project.supabase.co';
 const WS_A = '00000000-0000-4000-8000-00000000000a';
 const WS_B = '00000000-0000-4000-8000-00000000000b';
-const users: Record<Role | 'outsider', string> = {
+const users: Record<Role | 'outsider' | 'newcomer', string> = {
+  newcomer: '10000000-0000-4000-8000-000000000006',
   owner: '10000000-0000-4000-8000-000000000001',
   marketer: '10000000-0000-4000-8000-000000000002',
   sales: '10000000-0000-4000-8000-000000000003',
@@ -84,6 +85,12 @@ class FakeMembership {
   }
   async audit(entry: unknown) {
     this.audits.push(entry);
+  }
+  async createWorkspaceWithOwner(userId: string) {
+    if ([...this.roles.keys()].some((k) => k.endsWith(`:${userId}`))) return null;
+    const id = '00000000-0000-4000-8000-0000000000c1';
+    this.roles.set(`${id}:${userId}`, 'owner');
+    return id;
   }
 }
 
@@ -336,5 +343,38 @@ describe('WhatsApp и получатели отчётов', () => {
       .set('Authorization', await as('outsider'))
       .set('X-Workspace-Id', WS_A)
       .expect(403);
+  });
+});
+
+describe('своя компания', () => {
+  it('без компании — можно создать и стать владельцем; второй раз и участникам — 409', async () => {
+    const before = await request(app.getHttpServer())
+      .get('/me')
+      .set('Authorization', await as('newcomer'))
+      .expect(200);
+    expect(before.body.workspaces).toEqual([]);
+    await request(app.getHttpServer())
+      .post('/workspaces')
+      .set('Authorization', await as('newcomer'))
+      .send({ name: '   ' })
+      .expect(400);
+    const res = await request(app.getHttpServer())
+      .post('/workspaces')
+      .set('Authorization', await as('newcomer'))
+      .send({ name: 'Новая компания' })
+      .expect(201);
+    expect(res.body.id).toBeTruthy();
+    expect(membership.roles.get(`${res.body.id}:${users.newcomer}`)).toBe('owner');
+    await request(app.getHttpServer())
+      .post('/workspaces')
+      .set('Authorization', await as('newcomer'))
+      .send({ name: 'Ещё одна' })
+      .expect(409);
+    await request(app.getHttpServer())
+      .post('/workspaces')
+      .set('Authorization', await as('owner'))
+      .send({ name: 'Ещё одна' })
+      .expect(409);
+    await request(app.getHttpServer()).post('/workspaces').send({ name: 'x' }).expect(401);
   });
 });

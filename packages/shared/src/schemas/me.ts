@@ -21,6 +21,12 @@ export const meResponseSchema = z.object({
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
 
+/** Своя компания для пользователя без компаний: он становится её владельцем. */
+export const createWorkspaceRequestSchema = z.object({
+  name: z.string().trim().min(1, 'Введите название компании').max(80),
+});
+export type CreateWorkspaceRequest = z.infer<typeof createWorkspaceRequestSchema>;
+
 export const memberSchema = z.object({
   userId: z.uuid(),
   email: z.email().nullable(),
