@@ -9,15 +9,17 @@ import {
 } from '@lidomer/shared';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { AlertTriangle, Plus, Send } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Plus, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
+import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWorkspace } from '@/lib/workspace';
 import { cn } from '@/lib/utils';
@@ -185,18 +187,18 @@ export default function ReportsPage() {
                         </Button>
                       </>
                     )}
-                    <Button
+                    <ConfirmButton
                       variant="ghost"
                       size="sm"
                       className="text-destructive"
-                      onClick={() =>
-                        confirm(
-                          `Удалить отчёт «${r.name}»? История отправок удалится вместе с ним.`,
-                        ) && actions.remove.mutate(r.id)
-                      }
+                      disabled={actions.remove.isPending}
+                      title={`Удалить отчёт «${r.name}»?`}
+                      description="Отчёт перестанет отправляться. История отправок удалится вместе с ним."
+                      confirmLabel="Удалить"
+                      onConfirm={() => actions.remove.mutate(r.id)}
                     >
                       Удалить
-                    </Button>
+                    </ConfirmButton>
                   </div>
                 )}
               </CardContent>
@@ -205,104 +207,116 @@ export default function ReportsPage() {
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">История отправок</CardTitle>
-          <CardDescription>Что именно ушло: картинка и подпись</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {runs.isPending ? (
-            // Миниатюры отправок: название, дата со статусом и картинка 4:5.
-            <LoadingState className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'flex flex-col gap-2 rounded-lg border p-2.5',
-                    i === 2 && 'hidden md:flex',
-                  )}
-                >
-                  <Skeleton className="h-4 w-2/3" />
-                  <div className="flex items-center justify-between gap-1.5">
-                    <Skeleton className="h-3 w-20" />
+      {/* История — списком и свёрнута по умолчанию: открывают, когда нужно разобраться. */}
+      <Card className="gap-0 py-0">
+        <Collapsible>
+          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 px-4 py-4 text-left">
+            <div>
+              <div className="text-base font-medium">
+                История отправок
+                {runs.data?.runs.length ? (
+                  <span className="text-muted-foreground"> · {runs.data.runs.length}</span>
+                ) : null}
+              </div>
+              <div className="text-sm text-muted-foreground">Что именно ушло и куда доставлено</div>
+            </div>
+            <ChevronDown
+              className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-180"
+              aria-hidden
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="border-t">
+            {runs.isPending ? (
+              <LoadingState className="flex flex-col divide-y">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-3">
+                    <Skeleton className="h-12 w-10 shrink-0 rounded" />
+                    <div className="flex flex-1 flex-col gap-1.5">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
                     <Skeleton className="h-5 w-16 rounded-full" />
                   </div>
-                  <Skeleton className="aspect-[4/5] w-full" />
-                </div>
-              ))}
-            </LoadingState>
-          ) : !runs.data?.runs.length ? (
-            <p className="text-sm text-muted-foreground">Отправок ещё не было.</p>
-          ) : (
-            <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              {runs.data.runs.map((run) => {
-                const rep = reports.data?.reports.find((r) => r.id === run.reportId);
-                return (
-                  <li
-                    key={run.id}
-                    className="flex min-w-0 flex-col gap-2 rounded-lg border p-2.5 text-sm"
-                  >
-                    {/* Название, затем дата и статус одной строкой — миниатюры стоят на одной высоте. */}
-                    <div className="truncate font-medium">{rep?.name ?? 'Отчёт'}</div>
-                    <div className="flex items-center justify-between gap-1.5 text-xs text-muted-foreground">
-                      <span className="truncate">{when(run.sentAt ?? run.scheduledFor)}</span>
-                      <Badge
-                        variant={STATUS[run.status]?.variant ?? 'outline'}
-                        className="shrink-0"
-                      >
-                        {run.isTest ? 'тест · ' : ''}
-                        {STATUS[run.status]?.label ?? run.status}
-                      </Badge>
-                    </div>
-                    {run.imageUrl && (
-                      <a
-                        href={run.imageUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Открыть картинку целиком"
-                        className="block overflow-hidden rounded-md border transition-opacity hover:opacity-90"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={run.imageUrl}
-                          alt={`Картинка отчёта «${rep?.name ?? ''}»`}
-                          className="aspect-[4/5] w-full object-cover object-top"
-                          loading="lazy"
-                        />
-                      </a>
-                    )}
-                    {run.pdfUrl && (
-                      <a
-                        href={run.pdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-primary underline-offset-2 hover:underline"
-                      >
-                        Открыть PDF
-                      </a>
-                    )}
-                    {run.deliveries.length > 0 && (
-                      <ul className="flex flex-col gap-0.5 text-xs">
-                        {run.deliveries.map((d) => (
-                          <li
-                            key={targetKey(d)}
-                            className={d.ok ? 'text-muted-foreground' : 'text-destructive'}
+                ))}
+              </LoadingState>
+            ) : !runs.data?.runs.length ? (
+              <p className="px-4 py-3 text-sm text-muted-foreground">Отправок ещё не было.</p>
+            ) : (
+              <ul className="divide-y">
+                {runs.data.runs.map((run) => {
+                  const rep = reports.data?.reports.find((r) => r.id === run.reportId);
+                  return (
+                    <li key={run.id} className="flex min-w-0 gap-3 px-4 py-3 text-sm">
+                      {run.imageUrl ? (
+                        <a
+                          href={run.imageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Открыть картинку целиком"
+                          className="block h-12 w-10 shrink-0 overflow-hidden rounded border transition-opacity hover:opacity-90"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={run.imageUrl}
+                            alt={`Картинка отчёта «${rep?.name ?? ''}»`}
+                            className="size-full object-cover object-top"
+                            loading="lazy"
+                          />
+                        </a>
+                      ) : (
+                        <div className="h-12 w-10 shrink-0 rounded border bg-muted" />
+                      )}
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="truncate font-medium">{rep?.name ?? 'Отчёт'}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {when(run.sentAt ?? run.scheduledFor)}
+                          </span>
+                          <Badge
+                            variant={STATUS[run.status]?.variant ?? 'outline'}
+                            className="shrink-0 sm:ml-auto"
                           >
-                            <span className="break-words">
-                              {nameOf(d)} — {d.ok ? '✓' : d.error}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {run.dataNote && <p className="text-xs text-destructive">⚠ {run.dataNote}</p>}
-                    {run.error && <p className="text-xs text-destructive">{run.error}</p>}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardContent>
+                            {run.isTest ? 'тест · ' : ''}
+                            {STATUS[run.status]?.label ?? run.status}
+                          </Badge>
+                        </div>
+                        {run.deliveries.length > 0 && (
+                          <ul className="flex flex-col gap-0.5 text-xs">
+                            {run.deliveries.map((d) => (
+                              <li
+                                key={targetKey(d)}
+                                className={cn(
+                                  'break-words',
+                                  d.ok ? 'text-muted-foreground' : 'text-destructive',
+                                )}
+                              >
+                                {nameOf(d)} — {d.ok ? '✓' : d.error}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {run.dataNote && (
+                          <p className="text-xs text-destructive">⚠ {run.dataNote}</p>
+                        )}
+                        {run.error && <p className="text-xs text-destructive">{run.error}</p>}
+                        {run.pdfUrl && (
+                          <a
+                            href={run.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-fit text-xs text-primary underline-offset-2 hover:underline"
+                          >
+                            Открыть PDF
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {editing && (

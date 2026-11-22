@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { TableSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
 import { Button } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/confirm-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -181,18 +182,18 @@ export function TeamCard() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Button
+                      <ConfirmButton
                         variant="ghost"
                         size="icon"
                         aria-label={`Удалить ${m.email ?? ''}`}
                         disabled={remove.isPending}
-                        onClick={() => {
-                          if (confirm(`Удалить ${m.email ?? 'участника'} из команды?`))
-                            remove.mutate(m.userId);
-                        }}
+                        title={`Удалить ${m.email ?? 'участника'} из команды?`}
+                        description="Человек потеряет доступ к кабинету компании."
+                        confirmLabel="Удалить"
+                        onConfirm={() => remove.mutate(m.userId)}
                       >
                         <Trash2 className="size-4" />
-                      </Button>
+                      </ConfirmButton>
                     </TableCell>
                   </TableRow>
                 ))}

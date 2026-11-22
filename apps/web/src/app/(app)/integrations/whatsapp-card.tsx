@@ -9,6 +9,7 @@ import { ErrorState } from '@/components/state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/confirm-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -90,11 +91,6 @@ export function WhatsappCard() {
         ? 'destructive'
         : 'outline';
 
-  const disconnect = () => {
-    if (confirm('Отключить WhatsApp? Ключи будут удалены, отчёты в WhatsApp перестанут уходить.'))
-      actions.disconnect.mutate();
-  };
-
   return (
     <Card className="gap-0 pb-0">
       <CardHeader className="flex flex-row items-start gap-3 pb-4">
@@ -167,15 +163,18 @@ export function WhatsappCard() {
                 <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
                   Заменить ключи
                 </CollapsibleTrigger>
-                <Button
+                <ConfirmButton
                   variant="ghost"
                   size="sm"
                   className="text-destructive sm:ml-auto"
                   disabled={actions.disconnect.isPending}
-                  onClick={disconnect}
+                  title="Отключить WhatsApp?"
+                  description="Ключи будут удалены, отчёты в WhatsApp перестанут уходить."
+                  confirmLabel="Отключить"
+                  onConfirm={() => actions.disconnect.mutate()}
                 >
                   Отключить
-                </Button>
+                </ConfirmButton>
               </div>
               <CollapsibleContent>
                 <KeysForm replace />

@@ -16,6 +16,7 @@ import type { ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/confirm-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -186,11 +187,6 @@ export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canMa
   const Icon = ICONS[s.type] ?? Bot;
   const info = INTEGRATION_INFO[s.type as keyof typeof INTEGRATION_INFO];
 
-  const disconnect = () => {
-    if (confirm(`Отключить ${s.name}? Ключи будут удалены, загруженные данные останутся.`))
-      action.mutate({ action: 'disconnect' });
-  };
-
   return (
     <Card className="gap-0 pb-0">
       <CardHeader className="flex flex-row items-start gap-3 pb-4">
@@ -276,15 +272,18 @@ export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canMa
                 <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
                   Заменить ключ
                 </CollapsibleTrigger>
-                <Button
+                <ConfirmButton
                   variant="ghost"
                   size="sm"
                   className="text-destructive sm:ml-auto"
                   disabled={action.isPending}
-                  onClick={disconnect}
+                  title={`Отключить ${s.name}?`}
+                  description="Ключи будут удалены, загруженные данные останутся."
+                  confirmLabel="Отключить"
+                  onConfirm={() => action.mutate({ action: 'disconnect' })}
                 >
                   Отключить
-                </Button>
+                </ConfirmButton>
               </div>
               <CollapsibleContent>
                 <ConnectForm type={s.type} reconnect />
