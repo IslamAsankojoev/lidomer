@@ -10,3 +10,26 @@ export function excludedSet<T extends PgTable>(table: T, keep: string[]): Record
   }
   return set;
 }
+
+/**
+ * Upsert, который не трогает строку, если данные не изменились: `ON CONFLICT … DO UPDATE SET … WHERE
+ * (колонки) IS DISTINCT FROM (новые значения)`. Колонки служебного времени (`ignore`) не сравниваются,
+ * поэтому `synced_at` остаётся временем последнего изменения — по нему сверка ищет изменения (решение 0013).
+ */
+export function onlyChanged<T extends PgTable>(
+  table: T,
+  set: Record<string, SQL | Date>,
+  ignore: string[] = ['syncedAt'],
+): { set: Record<string, SQL | Date>; setWhere: SQL } {
+  const columns = getTableColumns(table);
+  const keys = Object.keys(set).filter((k) => !ignore.includes(k));
+  const current = sql.join(
+    keys.map((k) => sql`${columns[k]}`),
+    sql`, `,
+  );
+  const next = sql.join(
+    keys.map((k) => sql`${set[k]}`),
+    sql`, `,
+  );
+  return { set, setWhere: sql`(${current}) is distinct from (${next})` };
+}

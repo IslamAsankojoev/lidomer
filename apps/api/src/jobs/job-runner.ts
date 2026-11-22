@@ -27,7 +27,7 @@ export interface TickReport {
   scheduled: number;
   processed: number;
   failed: number;
-  /** Компаний, у которых пересобран журнал лидов и метрики. */
+  /** Компаний, у которых обновлён журнал лидов и метрики (частично или полностью). */
   rebuilt: number;
 }
 
@@ -86,11 +86,10 @@ export class JobRunner {
         if (ws !== true) touched.add(ws);
       } else report.failed++;
     }
-    // Данные изменились — пересобираем журнал лидов и метрики этих компаний.
+    // Синхронизация прошла — учитываем в журнале и метриках то, что изменилось (решение 0013).
     for (const ws of touched) {
       try {
-        await this.reconciliation.rebuild(ws);
-        report.rebuilt++;
+        if ((await this.reconciliation.refresh(ws)) !== 'skip') report.rebuilt++;
       } catch (err) {
         this.log.error(
           `Сверка ${ws} не удалась: ${err instanceof Error ? err.message : String(err)}`,
