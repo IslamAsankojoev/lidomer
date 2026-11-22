@@ -21,6 +21,12 @@ export const meResponseSchema = z.object({
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
 
+/** Своя компания для пользователя без компаний: он становится её владельцем. */
+export const createWorkspaceRequestSchema = z.object({
+  name: z.string().trim().min(1, 'Введите название компании').max(80),
+});
+export type CreateWorkspaceRequest = z.infer<typeof createWorkspaceRequestSchema>;
+
 export const memberSchema = z.object({
   userId: z.uuid(),
   email: z.email().nullable(),
@@ -37,6 +43,12 @@ export const inviteMemberRequestSchema = z.object({
   role: roleSchema,
 });
 export type InviteMemberRequest = z.infer<typeof inviteMemberRequestSchema>;
+/**
+ * emailSent — Supabase отправил письмо-приглашение (почта новая). false — у человека уже есть вход:
+ * Supabase приглашает только новые почты, его просто добавили в команду без письма.
+ */
+export const inviteMemberResponseSchema = z.object({ emailSent: z.boolean() });
+export type InviteMemberResponse = z.infer<typeof inviteMemberResponseSchema>;
 
 /** Логотип компании: файл в base64. Тип определяет api по содержимому, не по расширению. */
 export const LOGO_MAX_BYTES = 512 * 1024;

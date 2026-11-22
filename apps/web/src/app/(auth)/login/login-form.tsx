@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { clearWorkspaceSelection } from '@/lib/workspace';
 
 const schema = z.object({
   email: z.email('Введите email'),
@@ -40,6 +41,8 @@ export function LoginForm() {
       );
       return;
     }
+    // После входа участник нескольких компаний выбирает, в какую войти.
+    clearWorkspaceSelection();
     router.replace(safeNext(params.get('next')));
     router.refresh();
   };

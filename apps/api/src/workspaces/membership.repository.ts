@@ -87,6 +87,26 @@ export class MembershipRepository {
     return before;
   }
 
+  /**
+   * Компания с владельцем — только для пользователя, который ещё ни в одной компании не состоит.
+   * null — уже участник (проверка в той же транзакции, чтобы два клика не создали две компании).
+   */
+  async createWorkspaceWithOwner(userId: string, name: string): Promise<string | null> {
+    return this.db.transaction(async (tx) => {
+      // Блокировка по пользователю: параллельный запрос ждёт и видит уже созданную компанию.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
+      const [existing] = await tx
+        .select({ id: members.id })
+        .from(members)
+        .where(eq(members.userId, userId))
+        .limit(1);
+      if (existing) return null;
+      const [ws] = await tx.insert(workspaces).values({ name }).returning({ id: workspaces.id });
+      await tx.insert(members).values({ workspaceId: ws!.id, userId, role: 'owner' });
+      return ws!.id;
+    });
+  }
+
   async removeMember(workspaceId: string, userId: string): Promise<boolean> {
     const rows = await this.db
       .delete(members)
