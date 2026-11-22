@@ -34,7 +34,7 @@ import { approxSom, int, money } from '@/lib/format';
 import { usePeriod } from '@/lib/period';
 import { usePeriodHref } from '@/lib/period-link';
 import { useWorkspace } from '@/lib/workspace';
-import { isBrandSource, SourceLogo } from '@/components/source-badge';
+import { SourceLogo } from '@/components/source-badge';
 
 interface Tile {
   label: string;
@@ -448,7 +448,7 @@ function DataState({ data }: { data: SummaryResponse }) {
               />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 font-medium">
-                  {isBrandSource(s.type) && <SourceLogo source={s.type} />}
+                  <SourceLogo source={s.type} />
                   {INTEGRATION_LABELS[s.type]}
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -466,7 +466,10 @@ function DataState({ data }: { data: SummaryResponse }) {
                 aria-hidden
               />
               <div className="min-w-0">
-                <div className="font-medium">Meta Ads</div>
+                <div className="flex items-center gap-1.5 font-medium">
+                  <SourceLogo source="meta_ads" />
+                  {INTEGRATION_LABELS.meta_ads}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   не подключено — расхода и цены за лид нет
                 </div>

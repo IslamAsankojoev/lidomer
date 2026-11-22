@@ -3,15 +3,7 @@
 import { INTEGRATION_STATUS_LABELS, type IntegrationSummary } from '@lidomer/shared';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import {
-  AlertTriangle,
-  Bot,
-  BriefcaseBusiness,
-  ChevronDown,
-  Loader2,
-  Megaphone,
-  type LucideIcon,
-} from 'lucide-react';
+import { AlertTriangle, ChevronDown, Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -25,14 +17,8 @@ import { INTEGRATION_INFO, type IntegrationInfo } from './integration-info';
 import { RunsLog } from './runs-log';
 import { StageMap } from './stage-map';
 import { useIntegrationAction } from './use-integrations';
-import { isBrandSource, SourceLogo } from '@/components/source-badge';
+import { SourceLogo } from '@/components/source-badge';
 import { cn } from '@/lib/utils';
-
-const ICONS: Record<string, LucideIcon> = {
-  meta_ads: Megaphone,
-  ward: Bot,
-  bitrix24: BriefcaseBusiness,
-};
 
 function StatusBadge({ s }: { s: IntegrationSummary }) {
   const label =
@@ -184,19 +170,12 @@ export function IntegrationCardSkeleton() {
 export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canManage: boolean }) {
   const action = useIntegrationAction(s.type);
   const connected = s.status !== 'not_connected' && s.status !== 'disabled';
-  const Icon = ICONS[s.type] ?? Bot;
   const info = INTEGRATION_INFO[s.type as keyof typeof INTEGRATION_INFO];
 
   return (
     <Card className="gap-0 pb-0">
       <CardHeader className="flex flex-row items-start gap-3 pb-4">
-        {isBrandSource(s.type) ? (
-          <SourceLogo source={s.type} className="size-9" />
-        ) : (
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icon className="size-4.5" aria-hidden />
-          </div>
-        )}
+        <SourceLogo source={s.type} className="size-9" />
         <div className="min-w-0 flex-1">
           {/* Статус рядом с названием — описание не сжимается в узкую колонку. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

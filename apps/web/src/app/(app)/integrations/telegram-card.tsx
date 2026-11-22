@@ -1,8 +1,9 @@
 'use client';
 
 import { can } from '@lidomer/shared';
-import { Copy, Send } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { SourceLogo } from '@/components/source-badge';
 import { ErrorState } from '@/components/state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,9 +35,7 @@ export function TelegramCard() {
   return (
     <Card className="gap-0 pb-0">
       <CardHeader className="flex flex-row items-start gap-3 pb-4">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Send className="size-4.5" aria-hidden />
-        </div>
+        <SourceLogo source="telegram" className="size-9" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <CardTitle>Telegram</CardTitle>

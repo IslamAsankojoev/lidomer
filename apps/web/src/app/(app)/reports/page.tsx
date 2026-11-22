@@ -14,6 +14,7 @@ import { AlertTriangle, ChevronDown, Plus, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
+import { SourceLogo } from '@/components/source-badge';
 import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -25,7 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useWorkspace } from '@/lib/workspace';
 import { cn } from '@/lib/utils';
 import { ReportBuilder, scheduleText } from './report-builder';
-import { channelCounts, targetKey, targetLabel } from './targets';
+import { ChannelCounts, targetKey, targetLabel } from './targets';
 import { useReportActions, useReportsData, useTestReport } from './use-reports';
 
 const STATUS: Record<string, { label: string; variant: 'secondary' | 'destructive' | 'outline' }> =
@@ -120,7 +121,7 @@ export default function ReportsPage() {
                 <div>
                   <CardTitle className="text-base">{r.name}</CardTitle>
                   <CardDescription>
-                    {scheduleText(r.schedule)} · {channelCounts(r.recipients)} ·{' '}
+                    {scheduleText(r.schedule)} · <ChannelCounts recipients={r.recipients} /> ·{' '}
                     {r.config.format === 'pdf' ? 'PDF' : 'картинка'}
                   </CardDescription>
                 </div>
@@ -249,6 +250,10 @@ export default function ReportsPage() {
                                   d.ok ? 'text-muted-foreground' : 'text-destructive',
                                 )}
                               >
+                                <SourceLogo
+                                  source={d.channel}
+                                  className="mr-1 inline size-3.5 align-[-3px]"
+                                />
                                 {nameOf(d)} — {d.ok ? '✓' : d.error}
                               </li>
                             ))}

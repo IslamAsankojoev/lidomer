@@ -1,18 +1,19 @@
+import { INTEGRATION_LABELS, type IntegrationType } from '@lidomer/shared';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-/** Источники с логотипом (файлы — public/brands). */
-export type BrandSource = 'ward' | 'bitrix24';
+/** Логотип есть у каждой интеграции: источники и каналы отправки (файлы — public/brands). */
+export type BrandSource = IntegrationType;
 
 /** `darkSrc` — вариант для тёмной темы (у Ward левая половина W белая и на светлом фоне не видна). */
 const BRANDS: Record<BrandSource, { label: string; src: string; darkSrc?: string }> = {
+  meta_ads: { label: INTEGRATION_LABELS.meta_ads, src: '/brands/meta.png' },
   ward: { label: 'WARD', src: '/brands/ward.png', darkSrc: '/brands/ward-dark.png' },
   bitrix24: { label: 'Bitrix24', src: '/brands/bitrix24.png' },
+  telegram: { label: 'Telegram', src: '/brands/telegram.svg' },
+  // Без «· Green API» из INTEGRATION_LABELS: рядом с логотипом это канал, а не способ подключения.
+  green_api: { label: 'WhatsApp', src: '/brands/whatsapp.png' },
 };
-
-export function isBrandSource(type: string): type is BrandSource {
-  return type in BRANDS;
-}
 
 /** Логотип источника (прозрачный фон). Декоративный: рядом всегда есть название. */
 export function SourceLogo({ source, className }: { source: BrandSource; className?: string }) {
