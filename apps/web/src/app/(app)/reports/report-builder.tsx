@@ -18,6 +18,7 @@ import {
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { SourceBadge } from '@/components/source-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -32,7 +33,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { ReportPreview } from './report-preview';
-import { channelCounts, targetKey, targetLabel } from './targets';
+import { ChannelCounts, targetKey, targetLabel } from './targets';
 import { useReportActions } from './use-reports';
 
 const STEPS = ['Что', 'Когда', 'Куда', 'Проверка'] as const;
@@ -339,7 +340,9 @@ export function ReportBuilder({
           {step === 2 && (
             <div className="flex flex-col gap-5 text-sm">
               <section className="flex flex-col gap-2">
-                <h3 className="font-medium">Telegram</h3>
+                <h3 className="font-medium">
+                  <SourceBadge source="telegram" />
+                </h3>
                 {!tgTargets.length ? (
                   <p className="text-muted-foreground">
                     Нет подключённых групп — добавьте бота в группу на странице{' '}
@@ -367,7 +370,9 @@ export function ReportBuilder({
                 )}
               </section>
               <section className="flex flex-col gap-2">
-                <h3 className="font-medium">WhatsApp</h3>
+                <h3 className="font-medium">
+                  <SourceBadge source="green_api" />
+                </h3>
                 {!whatsappConnected && !waTargets.length ? (
                   <p className="text-muted-foreground">
                     WhatsApp не подключён —{' '}
@@ -427,9 +432,11 @@ export function ReportBuilder({
                 </dd>
                 <dt className="text-muted-foreground">Куда</dt>
                 <dd>
-                  {v.recipients.length
-                    ? channelCounts(v.recipients, 'summary')
-                    : 'никуда — выберите на шаге 3'}
+                  {v.recipients.length ? (
+                    <ChannelCounts recipients={v.recipients} style="summary" />
+                  ) : (
+                    'никуда — выберите на шаге 3'
+                  )}
                 </dd>
                 <dt className="text-muted-foreground">Формат</dt>
                 <dd>{REPORT_FORMAT_LABELS[v.config.format]}</dd>

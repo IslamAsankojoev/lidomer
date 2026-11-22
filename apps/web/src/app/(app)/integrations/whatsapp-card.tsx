@@ -3,8 +3,9 @@
 import { can, type ConnectGreenApiRequest, INTEGRATION_STATUS_LABELS } from '@lidomer/shared';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { AlertTriangle, MessageCircle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
+import { SourceLogo } from '@/components/source-badge';
 import { ErrorState } from '@/components/state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -94,9 +95,7 @@ export function WhatsappCard() {
   return (
     <Card className="gap-0 pb-0">
       <CardHeader className="flex flex-row items-start gap-3 pb-4">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
-          <MessageCircle className="size-4.5" aria-hidden />
-        </div>
+        <SourceLogo source="green_api" className="size-9" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <CardTitle>WhatsApp</CardTitle>
