@@ -30,6 +30,8 @@ select cron.schedule(
   $$
 );
 
+-- Старые строки cron.job_run_details (старше 7 дней) удаляет api раз в сутки — решение 0012.
+--
 -- Проверка: последние вызовы и их ответы
 -- select jobid, status, return_message, start_time from cron.job_run_details order by start_time desc limit 5;
 -- select id, status_code, content::text, created from net._http_response order by created desc limit 5;

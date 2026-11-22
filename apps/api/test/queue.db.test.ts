@@ -67,6 +67,7 @@ describe.runIf(enabled)('очередь задач на базе', { timeout: 60
     reports,
     telegram,
     { beat: async () => {} } as never,
+    { runDaily: async () => null } as never,
   );
 
   beforeAll(async () => {

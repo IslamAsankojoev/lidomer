@@ -3,6 +3,7 @@ import { SecretBox } from '../common/secret-box';
 import { ENV, type Env } from '../config/env';
 import { JobRunner } from '../jobs/job-runner';
 import { JobsController } from '../jobs/jobs.controller';
+import { Retention } from '../jobs/retention';
 import { Watchdog } from '../jobs/watchdog';
 import { JobQueue } from '../jobs/queue';
 import { ReconciliationModule } from '../reconciliation/reconciliation.module';
@@ -28,6 +29,7 @@ import { IntegrationsService, SECRET_BOX } from './integrations.service';
     JobQueue,
     JobRunner,
     Watchdog,
+    Retention,
     {
       provide: SECRET_BOX,
       inject: [ENV],

@@ -60,12 +60,17 @@ export const syncRuns = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
   },
-  (t) => [index('sync_runs_integration_started_idx').on(t.integrationId, t.startedAt)],
+  (t) => [
+    index('sync_runs_integration_started_idx').on(t.integrationId, t.startedAt),
+    // Ежедневная очистка старых запусков (jobs/retention.ts).
+    index('sync_runs_started_idx').on(t.startedAt),
+  ],
 ).enableRLS();
 
 /**
  * Ответ внешнего API как есть. Только добавление, никогда не меняется:
  * доказательство и основа для пересчёта. Секреты в `request` не пишутся.
+ * Хранится 14 дней (jobs/retention.ts), кроме последних ответов, которые читает код.
  */
 export const rawPayloads = pgTable(
   'raw_payloads',
@@ -85,7 +90,11 @@ export const rawPayloads = pgTable(
     response: jsonb('response'),
     fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('raw_payloads_run_idx').on(t.syncRunId)],
+  (t) => [
+    index('raw_payloads_run_idx').on(t.syncRunId),
+    // Ежедневная очистка старых ответов (jobs/retention.ts).
+    index('raw_payloads_fetched_idx').on(t.fetchedAt),
+  ],
 ).enableRLS();
 
 // ---------- Meta Ads ----------
