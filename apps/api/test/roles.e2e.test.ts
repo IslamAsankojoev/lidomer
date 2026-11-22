@@ -221,7 +221,7 @@ describe('доступ к компании и роли', () => {
       .set('Authorization', await as('owner'))
       .set('X-Workspace-Id', WS_A)
       .send({ email: 'new@example.test', role: 'marketer' })
-      .expect(204);
+      .expect(200, { emailSent: true });
     expect(await membership.findRole(NEW_USER, WS_A)).toBe('marketer');
     expect(membership.audits).toContainEqual(expect.objectContaining({ action: 'member.invite' }));
   });

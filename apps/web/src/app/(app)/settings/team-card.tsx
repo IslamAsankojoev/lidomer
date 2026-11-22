@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   type InviteMemberRequest,
   inviteMemberRequestSchema,
+  inviteMemberResponseSchema,
   membersResponseSchema,
   ROLE_LABELS,
   ROLES,
@@ -81,9 +82,16 @@ export function TeamCard() {
 
   const invite = useMutation({
     mutationFn: (body: InviteMemberRequest) =>
-      api(empty, '/members/invite', { ...opts, method: 'POST', body }),
-    onSuccess: async (_, body) => {
-      toast.success(`Приглашение отправлено: ${body.email}`);
+      api(inviteMemberResponseSchema, '/members/invite', { ...opts, method: 'POST', body }),
+    onSuccess: async ({ emailSent }, body) => {
+      if (emailSent) toast.success(`Приглашение отправлено: ${body.email}`);
+      else
+        // Supabase приглашает только новые почты: у этого человека уже есть вход.
+        toast.success(`${body.email} добавлен в команду`, {
+          description:
+            'У него уже есть вход в кабинет, поэтому письма не будет. Компания появится в выборе после входа и в меню пользователя.',
+          duration: 10_000,
+        });
       form.reset({ email: '', role: body.role });
       await refresh();
     },

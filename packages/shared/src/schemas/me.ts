@@ -43,6 +43,12 @@ export const inviteMemberRequestSchema = z.object({
   role: roleSchema,
 });
 export type InviteMemberRequest = z.infer<typeof inviteMemberRequestSchema>;
+/**
+ * emailSent — Supabase отправил письмо-приглашение (почта новая). false — у человека уже есть вход:
+ * Supabase приглашает только новые почты, его просто добавили в команду без письма.
+ */
+export const inviteMemberResponseSchema = z.object({ emailSent: z.boolean() });
+export type InviteMemberResponse = z.infer<typeof inviteMemberResponseSchema>;
 
 /** Логотип компании: файл в base64. Тип определяет api по содержимому, не по расширению. */
 export const LOGO_MAX_BYTES = 512 * 1024;

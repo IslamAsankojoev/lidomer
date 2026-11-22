@@ -17,6 +17,7 @@ import {
   type CreateWorkspaceRequest,
   createWorkspaceRequestSchema,
   type InviteMemberRequest,
+  type InviteMemberResponse,
   inviteMemberRequestSchema,
   type MeResponse,
   type MembersResponse,
@@ -149,16 +150,16 @@ export class WorkspacesController {
 
   /** Пригласить по email: новый пользователь получает письмо, существующий сразу добавляется. */
   @Post('members/invite')
-  @HttpCode(204)
+  @HttpCode(200)
   @RequirePermission('members:manage')
   async invite(
     @CurrentUser() actor: AuthUser,
     @CurrentWorkspace() ws: WorkspaceContext,
     @Body(new ZodPipe(inviteMemberRequestSchema)) body: InviteMemberRequest,
-  ): Promise<void> {
-    const userId =
-      (await this.membership.findUserIdByEmail(body.email)) ??
-      (await this.supabase.inviteByEmail(body.email));
+  ): Promise<InviteMemberResponse> {
+    // Уже зарегистрированного Supabase не приглашает — добавляем в команду без письма.
+    const existing = await this.membership.findUserIdByEmail(body.email);
+    const userId = existing ?? (await this.supabase.inviteByEmail(body.email));
     const before = await this.membership.findRole(userId, ws.workspaceId);
     if (before) throw new ConflictException('Этот человек уже в команде');
     await this.membership.upsertMember(ws.workspaceId, userId, body.role);
@@ -170,6 +171,7 @@ export class WorkspacesController {
       entityId: userId,
       after: { role: body.role },
     });
+    return { emailSent: !existing };
   }
 
   @Patch('members/:userId')
