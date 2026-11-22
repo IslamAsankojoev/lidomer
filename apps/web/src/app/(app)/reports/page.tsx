@@ -6,6 +6,7 @@ import {
   DELIVERY_CHANNELS,
   type DeliveryChannel,
   type ReportDto,
+  type ReportTarget,
 } from '@lidomer/shared';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -25,7 +26,7 @@ import { useWorkspace } from '@/lib/workspace';
 import { cn } from '@/lib/utils';
 import { ReportBuilder, scheduleText } from './report-builder';
 import { channelCounts, targetKey, targetLabel } from './targets';
-import { useReportActions, useReportsData } from './use-reports';
+import { useReportActions, useReportsData, useTestReport } from './use-reports';
 
 const STATUS: Record<string, { label: string; variant: 'secondary' | 'destructive' | 'outline' }> =
   {
@@ -45,10 +46,8 @@ export default function ReportsPage() {
   const { reports, targets: targetsQ, runs } = useReportsData();
   const actions = useReportActions();
   const [editing, setEditing] = useState<ReportDto | null | 'new'>(null);
-  const [testTarget, setTestTarget] = useState('');
   const allTargets = targetsQ.data?.targets ?? [];
   const targets = allTargets.filter((t) => t.active);
-  const target = targets.find((t) => targetKey(t) === testTarget) ?? targets[0];
   // Есть куда отправлять: активная группа Telegram или подключённый WhatsApp.
   const hasChannel =
     targets.some((t) => t.channel === 'telegram') || targetsQ.data?.whatsapp.status === 'connected';
@@ -146,47 +145,7 @@ export default function ReportsPage() {
                     <Button variant="outline" size="sm" onClick={() => setEditing(r)}>
                       Изменить
                     </Button>
-                    {targets.length > 0 && (
-                      <>
-                        <select
-                          aria-label="Куда отправить тест"
-                          className={sel}
-                          value={target ? targetKey(target) : ''}
-                          onChange={(e) => setTestTarget(e.target.value)}
-                        >
-                          {DELIVERY_CHANNELS.map((ch) => {
-                            const list = targets.filter((t) => t.channel === ch);
-                            return list.length ? (
-                              <optgroup key={ch} label={DELIVERY_CHANNEL_LABELS[ch]}>
-                                {list.map((t) => (
-                                  <option key={targetKey(t)} value={targetKey(t)}>
-                                    {targetLabel(t)}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            ) : null;
-                          })}
-                        </select>
-                        <Button
-                          size="sm"
-                          disabled={actions.test.isPending || !target}
-                          onClick={() =>
-                            target &&
-                            actions.test.mutate({
-                              id: r.id,
-                              to: {
-                                channel: target.channel,
-                                chatId: target.chatId,
-                                threadId: target.threadId,
-                              },
-                            })
-                          }
-                        >
-                          <Send className="size-4" />{' '}
-                          {actions.test.isPending ? 'Отправляем…' : 'Отправить тест'}
-                        </Button>
-                      </>
-                    )}
+                    {targets.length > 0 && <TestSend reportId={r.id} targets={targets} />}
                     <ConfirmButton
                       variant="ghost"
                       size="sm"
@@ -329,5 +288,51 @@ export default function ReportsPage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * «Отправить тест» в один выбранный чат. Выбор и состояние кнопки — свои у каждого отчёта:
+ * смена группы у одного не меняет её у других, «Отправляем…» горит только у нажатого.
+ */
+function TestSend({ reportId, targets }: { reportId: string; targets: ReportTarget[] }) {
+  const test = useTestReport();
+  const [key, setKey] = useState('');
+  const target = targets.find((t) => targetKey(t) === key) ?? targets[0];
+  return (
+    <>
+      <select
+        aria-label="Куда отправить тест"
+        className={sel}
+        value={target ? targetKey(target) : ''}
+        onChange={(e) => setKey(e.target.value)}
+      >
+        {DELIVERY_CHANNELS.map((ch) => {
+          const list = targets.filter((t) => t.channel === ch);
+          return list.length ? (
+            <optgroup key={ch} label={DELIVERY_CHANNEL_LABELS[ch]}>
+              {list.map((t) => (
+                <option key={targetKey(t)} value={targetKey(t)}>
+                  {targetLabel(t)}
+                </option>
+              ))}
+            </optgroup>
+          ) : null;
+        })}
+      </select>
+      <Button
+        size="sm"
+        disabled={test.isPending || !target}
+        onClick={() =>
+          target &&
+          test.mutate({
+            id: reportId,
+            to: { channel: target.channel, chatId: target.chatId, threadId: target.threadId },
+          })
+        }
+      >
+        <Send className="size-4" /> {test.isPending ? 'Отправляем…' : 'Отправить тест'}
+      </Button>
+    </>
   );
 }

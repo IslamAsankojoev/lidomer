@@ -64,19 +64,33 @@ export function useReportActions() {
       onSuccess: refresh,
       onError,
     }),
-    test: useMutation({
-      mutationFn: ({ id, to }: { id: string; to: Recipient }) =>
-        api(z.object({ status: z.string(), error: z.string().nullable() }), `/reports/${id}/test`, {
-          ...opts,
-          method: 'POST',
-          body: to,
-        }),
-      onSuccess: async (run) => {
-        if (run.status === 'sent') toast.success('Тест отправлен');
-        else toast.error(run.error ?? 'Тест не отправлен — см. историю');
-        await refresh();
-      },
-      onError,
-    }),
   };
+}
+
+/** Тестовая отправка — свой экземпляр у каждого отчёта: «Отправляем…» горит только у нажатого. */
+export function useTestReport() {
+  const api = useApi();
+  const { workspace } = useWorkspace();
+  const qc = useQueryClient();
+  const opts = { workspaceId: workspace.id };
+  const refresh = () =>
+    qc.invalidateQueries({
+      predicate: (q) =>
+        ['reports', 'report-runs', 'report-targets'].includes(String(q.queryKey[0])),
+    });
+  const onError = (e: Error) => toast.error(e.message);
+  return useMutation({
+    mutationFn: ({ id, to }: { id: string; to: Recipient }) =>
+      api(z.object({ status: z.string(), error: z.string().nullable() }), `/reports/${id}/test`, {
+        ...opts,
+        method: 'POST',
+        body: to,
+      }),
+    onSuccess: async (run) => {
+      if (run.status === 'sent') toast.success('Тест отправлен');
+      else toast.error(run.error ?? 'Тест не отправлен — см. историю');
+      await refresh();
+    },
+    onError,
+  });
 }
