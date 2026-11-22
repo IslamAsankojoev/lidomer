@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConnectForm } from './connect-form';
+import { INTEGRATION_INFO, type IntegrationInfo } from './integration-info';
 import { RunsLog } from './runs-log';
 import { StageMap } from './stage-map';
 import { useIntegrationAction } from './use-integrations';
@@ -30,12 +31,6 @@ const ICONS: Record<string, LucideIcon> = {
   meta_ads: Megaphone,
   ward: Bot,
   bitrix24: BriefcaseBusiness,
-};
-
-const DESCRIPTIONS: Record<string, string> = {
-  meta_ads: 'Расход, показы, клики и результаты объявлений по дням',
-  ward: 'Лиды и переписки бота в Instagram',
-  bitrix24: 'Сделки, стадии и суммы продаж',
 };
 
 function StatusBadge({ s }: { s: IntegrationSummary }) {
@@ -57,10 +52,63 @@ function StatusBadge({ s }: { s: IntegrationSummary }) {
   );
 }
 
-/** Раскрывающийся раздел внизу карточки: строка на всю ширину со стрелкой справа. */
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/** «Официальный API» / «Неофициальный API» рядом со статусом. */
+export function ApiBadge({ info }: { info: IntegrationInfo }) {
   return (
-    <Collapsible className="border-t">
+    <Badge variant={info.official ? 'success' : 'warning'} title={info.api}>
+      {info.official ? 'Официальный API' : 'Неофициальный API'}
+    </Badge>
+  );
+}
+
+/** «Как это работает»: как устроено, шаги подключения, риск. */
+export function HowItWorks({
+  info,
+  defaultOpen,
+  bot,
+}: {
+  info: IntegrationInfo;
+  defaultOpen: boolean;
+  /** Имя бота Telegram для шага «Добавьте бота …». */
+  bot?: string;
+}) {
+  return (
+    <Section title="Как это работает" defaultOpen={defaultOpen}>
+      <div className="flex flex-col gap-3 text-sm">
+        <p>
+          <span className="text-muted-foreground">
+            {info.official ? 'Официальный' : 'Неофициальный'} · {info.api}.
+          </span>{' '}
+          {info.how}
+        </p>
+        <ol className="list-decimal space-y-1 pl-5">
+          {info.steps.map((step) => (
+            <li key={step}>{step.replace('{bot}', bot ? `@${bot}` : 'отчётов')}</li>
+          ))}
+        </ol>
+        {info.risk && (
+          <Alert>
+            <AlertTriangle aria-hidden />
+            <AlertDescription>{info.risk}</AlertDescription>
+          </Alert>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+/** Раскрывающийся раздел внизу карточки: строка на всю ширину со стрелкой справа. */
+export function Section({
+  title,
+  children,
+  defaultOpen,
+}: {
+  title: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <Collapsible className="border-t" defaultOpen={defaultOpen}>
       <CollapsibleTrigger className="group flex w-full items-center justify-between px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
         {title}
         <ChevronDown
@@ -128,6 +176,7 @@ export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canMa
   const action = useIntegrationAction(s.type);
   const connected = s.status !== 'not_connected' && s.status !== 'disabled';
   const Icon = ICONS[s.type] ?? Bot;
+  const info = INTEGRATION_INFO[s.type as keyof typeof INTEGRATION_INFO];
 
   const disconnect = () => {
     if (confirm(`Отключить ${s.name}? Ключи будут удалены, загруженные данные останутся.`))
@@ -151,8 +200,9 @@ export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canMa
               {s.name}
             </CardTitle>
             <StatusBadge s={s} />
+            {info && <ApiBadge info={info} />}
           </div>
-          <CardDescription>{DESCRIPTIONS[s.type]}</CardDescription>
+          <CardDescription>{info?.summary}</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 pb-4">
@@ -235,6 +285,9 @@ export function IntegrationCard({ s, canManage }: { s: IntegrationSummary; canMa
           ))}
       </CardContent>
 
+      {info && (
+        <HowItWorks info={info} defaultOpen={!connected || s.status === 'reauth_required'} />
+      )}
       {s.type === 'bitrix24' && connected && (
         <Section title="Статусы сделок">
           <StageMap canManage={canManage} />

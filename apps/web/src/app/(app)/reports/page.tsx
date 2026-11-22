@@ -3,12 +3,12 @@
 import { can, type ReportDto } from '@lidomer/shared';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Copy, Plus, Send } from 'lucide-react';
+import { AlertTriangle, Plus, Send } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
-import { TextSkeleton } from '@/components/skeletons';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,7 +56,7 @@ export default function ReportsPage() {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 md:gap-6">
       <PageHeader
         title="Отчёты"
-        description="Отправляются в Telegram по расписанию картинкой с подписью"
+        description="Отправляются по расписанию в Telegram и WhatsApp — картинкой или PDF"
         actions={
           canManage && (
             <Button onClick={() => setEditing('new')} disabled={!chats.data?.configured}>
@@ -66,101 +66,20 @@ export default function ReportsPage() {
         }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Получатели</CardTitle>
-          <CardDescription>Группы и темы Telegram, подключённые к компании</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 text-sm">
-          {chats.isPending ? (
-            <LoadingState>
-              <TextSkeleton lines={2} />
-            </LoadingState>
-          ) : chats.isError ? (
-            <ErrorState message={chats.error.message} onRetry={() => void chats.refetch()} />
-          ) : !chats.data.configured ? (
-            <p className="text-muted-foreground">
-              Бот не настроен: владелец вносит <code>TELEGRAM_BOT_TOKEN</code> в Vercel (проект api)
-              — см. docs/setup/etap-5.md.
-            </p>
-          ) : (
-            <>
-              <ol className="list-decimal space-y-1 pl-5">
-                <li>
-                  Добавьте бота{' '}
-                  {chats.data.botUsername ? <b>@{chats.data.botUsername}</b> : 'отчётов'} в группу.
-                </li>
-                <li>
-                  Отправьте в группе (или в нужной теме) команду:{' '}
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(`/connect ${chats.data.connectCode}`);
-                      toast.success('Команда скопирована');
-                    }}
-                  >
-                    /connect {chats.data.connectCode} <Copy className="size-3" aria-hidden />
-                  </button>
-                </li>
-              </ol>
-              {canManage && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => actions.setup.mutate()}
-                    disabled={actions.setup.isPending}
-                  >
-                    {actions.setup.isPending ? 'Подключаем…' : 'Подключить бота к кабинету'}
-                  </Button>
-                  <span className="text-xs text-muted-foreground">
-                    Один раз после внесения токена или его смены — чтобы бот слышал команду
-                    /connect.
-                  </span>
-                </div>
-              )}
-              {chatList.length ? (
-                <ul className="divide-y rounded-lg border">
-                  {chatList.map((c) => (
-                    <li
-                      key={c.id}
-                      className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-                    >
-                      <span>
-                        {c.title}
-                        {c.topics.length > 0 && (
-                          <span className="text-muted-foreground"> · тем: {c.topics.length}</span>
-                        )}
-                      </span>
-                      {!c.active && <Badge variant="destructive">бот удалён</Badge>}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted-foreground">Пока ни одной группы.</p>
-              )}
-              {canManage && chatList.length > 0 && (
-                <label className="flex flex-wrap items-center gap-2">
-                  Алерты о сбоях интеграций —
-                  <select
-                    className={sel}
-                    value={chats.data.alertChatId ?? ''}
-                    onChange={(e) => actions.alertChat.mutate(e.target.value || null)}
-                  >
-                    <option value="">не отправлять</option>
-                    {chatList.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {chats.data && !targets.length && (
+        <Alert>
+          <AlertTriangle aria-hidden />
+          <AlertDescription>
+            <span>
+              Чтобы отчёты уходили, подключите Telegram или WhatsApp на странице{' '}
+              <Link href="/integrations" className="underline underline-offset-2">
+                «Интеграции»
+              </Link>
+              .
+            </span>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {reports.isPending ? (
         <LoadingState className="flex flex-col gap-3">

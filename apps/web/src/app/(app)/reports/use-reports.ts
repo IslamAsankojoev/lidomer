@@ -1,16 +1,12 @@
 'use client';
 
-import {
-  type ReportInput,
-  reportRunsResponseSchema,
-  reportsResponseSchema,
-  telegramChatsResponseSchema,
-} from '@lidomer/shared';
+import { type ReportInput, reportRunsResponseSchema, reportsResponseSchema } from '@lidomer/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useApi } from '@/lib/api';
 import { useWorkspace } from '@/lib/workspace';
+import { useTelegramChats } from '../integrations/use-telegram';
 
 export function useReportsData() {
   const api = useApi();
@@ -20,10 +16,7 @@ export function useReportsData() {
     queryKey: ['reports', workspace.id],
     queryFn: () => api(reportsResponseSchema, '/reports', opts),
   });
-  const chats = useQuery({
-    queryKey: ['tg-chats', workspace.id],
-    queryFn: () => api(telegramChatsResponseSchema, '/telegram/chats', opts),
-  });
+  const chats = useTelegramChats();
   const runs = useQuery({
     queryKey: ['report-runs', workspace.id],
     queryFn: () => api(reportRunsResponseSchema, '/reports/runs', opts),
@@ -79,24 +72,6 @@ export function useReportActions() {
       onSuccess: async (run) => {
         if (run.status === 'sent') toast.success('Тест отправлен');
         else toast.error(run.error ?? 'Тест не отправлен — см. историю');
-        await refresh();
-      },
-      onError,
-    }),
-    alertChat: useMutation({
-      mutationFn: (chatId: string | null) =>
-        api(z.null(), '/telegram/alert-chat', { ...opts, method: 'PUT', body: { chatId } }),
-      onSuccess: async () => {
-        toast.success('Группа алертов сохранена');
-        await refresh();
-      },
-      onError,
-    }),
-    setup: useMutation({
-      mutationFn: () =>
-        api(z.object({ ok: z.boolean() }), '/telegram/setup', { ...opts, method: 'POST' }),
-      onSuccess: async () => {
-        toast.success('Бот подключён к кабинету');
         await refresh();
       },
       onError,
