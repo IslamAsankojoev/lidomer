@@ -92,6 +92,13 @@
       "when": 1795295767251,
       "tag": "0012_report_pdf_marketer",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795296673754,
+      "tag": "0013_whatsapp_channels",
+      "breakpoints": true
     }
   ]
 }

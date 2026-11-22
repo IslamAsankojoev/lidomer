@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Типы подключений. */
-export const INTEGRATION_TYPES = ['meta_ads', 'ward', 'bitrix24', 'telegram'] as const;
+export const INTEGRATION_TYPES = ['meta_ads', 'ward', 'bitrix24', 'telegram', 'green_api'] as const;
 export const integrationTypeSchema = z.enum(INTEGRATION_TYPES);
 export type IntegrationType = z.infer<typeof integrationTypeSchema>;
 
@@ -10,6 +10,7 @@ export const INTEGRATION_LABELS: Record<IntegrationType, string> = {
   ward: 'WARD',
   bitrix24: 'Bitrix24',
   telegram: 'Telegram',
+  green_api: 'WhatsApp · Green API',
 };
 
 /** Состояние подключения. */

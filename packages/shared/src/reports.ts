@@ -50,6 +50,15 @@ export function creativesOnPage<T>(list: T[], page: number): T[] {
   return list.slice(start, start + CREATIVES_PER_PAGE);
 }
 
+/** Куда уходит отчёт: Telegram (бот сервиса) или WhatsApp (Green API компании). */
+export const DELIVERY_CHANNELS = ['telegram', 'green_api'] as const;
+export const deliveryChannelSchema = z.enum(DELIVERY_CHANNELS);
+export type DeliveryChannel = z.infer<typeof deliveryChannelSchema>;
+export const DELIVERY_CHANNEL_LABELS: Record<DeliveryChannel, string> = {
+  telegram: 'Telegram',
+  green_api: 'WhatsApp',
+};
+
 /** Как отправлять: картинкой (фото в чате) или PDF-файлом (документ). */
 export const REPORT_FORMATS = ['png', 'pdf'] as const;
 export const reportFormatSchema = z.enum(REPORT_FORMATS);

@@ -11,6 +11,7 @@ import { ENV, loadEnv } from '../src/config/env';
 import { MembershipRepository } from '../src/workspaces/membership.repository';
 import { SupabaseAdmin } from '../src/workspaces/supabase-admin';
 import { IntegrationsRepository } from '../src/integrations/integrations.repository';
+import { TelegramService } from '../src/reports/telegram.service';
 
 const CRON_SECRET = 'c'.repeat(64);
 // В тестах подключений нет: проверяем доступ, а не синхронизацию.
@@ -123,6 +124,9 @@ beforeAll(async () => {
     .useValue(membership)
     .overrideProvider(IntegrationsRepository)
     .useValue(fakeIntegrations)
+    // Бот не настроен: проверяем доступ к спискам получателей без базы.
+    .overrideProvider(TelegramService)
+    .useValue({ configured: false, listChats: async () => [] })
     .overrideProvider(SupabaseAdmin)
     .useValue({ inviteByEmail: async () => NEW_USER })
     .compile();
@@ -273,5 +277,64 @@ describe('интеграции и задачи', () => {
       .post('/jobs/tick')
       .set('Authorization', await as('owner'))
       .expect(401);
+  });
+});
+
+describe('WhatsApp и получатели отчётов', () => {
+  it('GET и PUT /whatsapp — 403 для Продаж и Наблюдателя', async () => {
+    for (const role of ['sales', 'viewer'] as const) {
+      await request(app.getHttpServer())
+        .get('/whatsapp')
+        .set('Authorization', await as(role))
+        .set('X-Workspace-Id', WS_A)
+        .expect(403);
+      await request(app.getHttpServer())
+        .put('/whatsapp')
+        .set('Authorization', await as(role))
+        .set('X-Workspace-Id', WS_A)
+        .send({})
+        .expect(403);
+    }
+    const res = await request(app.getHttpServer())
+      .get('/whatsapp')
+      .set('Authorization', await as('marketer'))
+      .set('X-Workspace-Id', WS_A)
+      .expect(200);
+    expect(res.body).toMatchObject({ status: 'not_connected', maskedToken: null, groups: [] });
+  });
+
+  it('чужой адрес Green API отклоняется до запроса', async () => {
+    const res = await request(app.getHttpServer())
+      .put('/whatsapp')
+      .set('Authorization', await as('owner'))
+      .set('X-Workspace-Id', WS_A)
+      .send({
+        apiUrl: 'https://evil.com',
+        mediaUrl: 'https://media.green-api.com',
+        idInstance: '1101000001',
+        apiTokenInstance: 'x'.repeat(30),
+      })
+      .expect(400);
+    expect(JSON.stringify(res.body)).toContain('Green API');
+  });
+
+  it('GET /reports/targets — роли своей компании видят, чужая — 403', async () => {
+    for (const role of ['owner', 'marketer', 'sales', 'viewer'] as const) {
+      const res = await request(app.getHttpServer())
+        .get('/reports/targets')
+        .set('Authorization', await as(role))
+        .set('X-Workspace-Id', WS_A)
+        .expect(200);
+      expect(res.body).toEqual({
+        telegram: { configured: false },
+        whatsapp: { status: 'not_connected' },
+        targets: [],
+      });
+    }
+    await request(app.getHttpServer())
+      .get('/reports/targets')
+      .set('Authorization', await as('outsider'))
+      .set('X-Workspace-Id', WS_A)
+      .expect(403);
   });
 });

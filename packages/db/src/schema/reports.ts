@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { DELIVERY_CHANNELS } from '@lidomer/shared';
 import { createdAt, updatedAt } from './columns';
 import { workspaces } from './core';
 
@@ -63,6 +64,12 @@ export const reports = pgTable(
   (t) => [index('reports_workspace_idx').on(t.workspaceId)],
 ).enableRLS();
 
+export const deliveryChannelEnum = pgEnum('delivery_channel', DELIVERY_CHANNELS);
+
+/**
+ * Получатели отчёта: канал и чат. Внешнего ключа на telegram_chats нет — группы WhatsApp живут в
+ * integrations.settings; принадлежность чата компании проверяет сервис при сохранении.
+ */
 export const reportRecipients = pgTable(
   'report_recipients',
   {
@@ -71,13 +78,13 @@ export const reportRecipients = pgTable(
     reportId: uuid('report_id')
       .notNull()
       .references(() => reports.id, { onDelete: 'cascade' }),
-    chatId: text('chat_id')
-      .notNull()
-      .references(() => telegramChats.id, { onDelete: 'cascade' }),
-    /** Тема форума; null — общий чат. */
+    channel: deliveryChannelEnum('channel').notNull().default('telegram'),
+    /** id чата Telegram или группы WhatsApp (`…@g.us`). */
+    chatId: text('chat_id').notNull(),
+    /** Тема форума Telegram; null — общий чат. */
     threadId: text('thread_id'),
   },
-  (t) => [uniqueIndex('report_recipients_uq').on(t.reportId, t.chatId, t.threadId)],
+  (t) => [uniqueIndex('report_recipients_uq').on(t.reportId, t.channel, t.chatId, t.threadId)],
 ).enableRLS();
 
 export const REPORT_RUN_STATUSES = [

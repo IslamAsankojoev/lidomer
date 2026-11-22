@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { useWorkspace } from '@/lib/workspace';
 import { IntegrationCard, IntegrationCardSkeleton } from './integration-card';
 import { TelegramCard } from './telegram-card';
+import { WhatsappCard } from './whatsapp-card';
 import { useIntegrations } from './use-integrations';
 
 export default function IntegrationsPage() {
@@ -75,6 +76,7 @@ function IntegrationsList({ canManage }: { canManage: boolean }) {
       >
         <div className="flex flex-col gap-4">
           <TelegramCard />
+          <WhatsappCard />
         </div>
       </Group>
     </div>

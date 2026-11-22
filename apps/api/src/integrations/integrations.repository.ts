@@ -80,6 +80,30 @@ export class IntegrationsRepository {
     await this.db.update(integrations).set({ status, lastError }).where(eq(integrations.id, id));
   }
 
+  async setSettings(id: string, settings: Record<string, unknown>): Promise<void> {
+    await this.db.update(integrations).set({ settings }).where(eq(integrations.id, id));
+  }
+
+  /** Инстанс Green API, уже подключённый в другой компании (не отключённый). */
+  async findGreenInstanceElsewhere(
+    idInstance: string,
+    exceptWorkspaceId: string,
+  ): Promise<IntegrationRow | null> {
+    const [row] = await this.db
+      .select()
+      .from(integrations)
+      .where(
+        and(
+          eq(integrations.type, 'green_api'),
+          sql`${integrations.settings}->>'idInstance' = ${idInstance}`,
+          sql`${integrations.workspaceId} <> ${exceptWorkspaceId}`,
+          sql`${integrations.status} <> 'disabled'`,
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
   async markSynced(id: string): Promise<void> {
     await this.db
       .update(integrations)

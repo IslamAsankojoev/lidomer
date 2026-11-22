@@ -1,40 +1,12 @@
-import { request } from 'node:https';
 import { z } from 'zod';
 import { HttpError } from '../common/http';
+import { requestIpv4 } from '../common/ipv4-request';
 
 const TIMEOUT_MS = 15_000;
 
-/**
- * POST в Bot API по IPv4 с таймаутом. Функции Vercel не выходят в IPv6, а api.telegram.org отдаёт
- * AAAA-адрес первым — обычный fetch висел до 120 с. Здесь соединение идёт только по IPv4.
- */
-function postIpv4(
-  url: string,
-  body: Buffer,
-  contentType: string,
-): Promise<{ status: number; text: string }> {
-  return new Promise((resolve, reject) => {
-    const req = request(
-      url,
-      {
-        method: 'POST',
-        family: 4,
-        timeout: TIMEOUT_MS,
-        headers: { 'Content-Type': contentType, 'Content-Length': body.length },
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (c: Buffer) => chunks.push(c));
-        res.on('end', () =>
-          resolve({ status: res.statusCode ?? 0, text: Buffer.concat(chunks).toString('utf8') }),
-        );
-      },
-    );
-    req.on('timeout', () => req.destroy(new Error(`нет ответа за ${TIMEOUT_MS / 1000} с`)));
-    req.on('error', reject);
-    req.end(body);
-  });
-}
+/** POST в Bot API по IPv4 (см. requestIpv4). */
+const postIpv4: TelegramTransport = (url, body, contentType) =>
+  requestIpv4({ method: 'POST', url, body, contentType, timeoutMs: TIMEOUT_MS });
 
 export type TelegramTransport = (
   url: string,

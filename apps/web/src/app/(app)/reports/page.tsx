@@ -1,21 +1,30 @@
 'use client';
 
-import { can, type ReportDto } from '@lidomer/shared';
+import {
+  can,
+  DELIVERY_CHANNEL_LABELS,
+  DELIVERY_CHANNELS,
+  type DeliveryChannel,
+  type ReportDto,
+} from '@lidomer/shared';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { AlertTriangle, Plus, Send } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Plus, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { PageHeader } from '@/components/page-header';
+import { ConfirmButton } from '@/components/confirm-button';
 import { EmptyState, ErrorState, LoadingState } from '@/components/state';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWorkspace } from '@/lib/workspace';
 import { cn } from '@/lib/utils';
 import { ReportBuilder, scheduleText } from './report-builder';
+import { channelCounts, targetKey, targetLabel } from './targets';
 import { useReportActions, useReportsData } from './use-reports';
 
 const STATUS: Record<string, { label: string; variant: 'secondary' | 'destructive' | 'outline' }> =
@@ -33,23 +42,20 @@ const sel =
 export default function ReportsPage() {
   const { workspace } = useWorkspace();
   const canManage = can(workspace.role, 'reports:manage');
-  const { reports, chats, runs } = useReportsData();
+  const { reports, targets: targetsQ, runs } = useReportsData();
   const actions = useReportActions();
   const [editing, setEditing] = useState<ReportDto | null | 'new'>(null);
   const [testTarget, setTestTarget] = useState('');
-  const chatList = chats.data?.chats ?? [];
-  const targets = chatList
-    .filter((c) => c.active)
-    .flatMap((c) => [
-      { key: `${c.id}|`, label: c.title, chatId: c.id, threadId: null as string | null },
-      ...c.topics.map((t) => ({
-        key: `${c.id}|${t.id}`,
-        label: `${c.title} › ${t.name}`,
-        chatId: c.id,
-        threadId: t.id,
-      })),
-    ]);
-  const target = targets.find((t) => t.key === testTarget) ?? targets[0];
+  const allTargets = targetsQ.data?.targets ?? [];
+  const targets = allTargets.filter((t) => t.active);
+  const target = targets.find((t) => targetKey(t) === testTarget) ?? targets[0];
+  // Есть куда отправлять: активная группа Telegram или подключённый WhatsApp.
+  const hasChannel =
+    targets.some((t) => t.channel === 'telegram') || targetsQ.data?.whatsapp.status === 'connected';
+  const nameOf = (d: { channel: DeliveryChannel; chatId: string; threadId: string | null }) => {
+    const t = allTargets.find((x) => targetKey(x) === targetKey(d));
+    return `${DELIVERY_CHANNEL_LABELS[d.channel]} · ${t ? targetLabel(t) : 'группа'}`;
+  };
 
   return (
     // Колонка по центру, как «Интеграции» и «Настройки».
@@ -59,14 +65,14 @@ export default function ReportsPage() {
         description="Отправляются по расписанию в Telegram и WhatsApp — картинкой или PDF"
         actions={
           canManage && (
-            <Button onClick={() => setEditing('new')} disabled={!chats.data?.configured}>
+            <Button onClick={() => setEditing('new')} disabled={!hasChannel}>
               <Plus className="size-4" /> Создать отчёт
             </Button>
           )
         }
       />
 
-      {chats.data && !targets.length && (
+      {targetsQ.data && !hasChannel && (
         <Alert>
           <AlertTriangle aria-hidden />
           <AlertDescription>
@@ -115,7 +121,7 @@ export default function ReportsPage() {
                 <div>
                   <CardTitle className="text-base">{r.name}</CardTitle>
                   <CardDescription>
-                    {scheduleText(r.schedule)} · получателей {r.recipients.length} ·{' '}
+                    {scheduleText(r.schedule)} · {channelCounts(r.recipients)} ·{' '}
                     {r.config.format === 'pdf' ? 'PDF' : 'картинка'}
                   </CardDescription>
                 </div>
@@ -145,14 +151,21 @@ export default function ReportsPage() {
                         <select
                           aria-label="Куда отправить тест"
                           className={sel}
-                          value={target?.key}
+                          value={target ? targetKey(target) : ''}
                           onChange={(e) => setTestTarget(e.target.value)}
                         >
-                          {targets.map((t) => (
-                            <option key={t.key} value={t.key}>
-                              {t.label}
-                            </option>
-                          ))}
+                          {DELIVERY_CHANNELS.map((ch) => {
+                            const list = targets.filter((t) => t.channel === ch);
+                            return list.length ? (
+                              <optgroup key={ch} label={DELIVERY_CHANNEL_LABELS[ch]}>
+                                {list.map((t) => (
+                                  <option key={targetKey(t)} value={targetKey(t)}>
+                                    {targetLabel(t)}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ) : null;
+                          })}
                         </select>
                         <Button
                           size="sm"
@@ -161,8 +174,11 @@ export default function ReportsPage() {
                             target &&
                             actions.test.mutate({
                               id: r.id,
-                              chatId: target.chatId,
-                              threadId: target.threadId,
+                              to: {
+                                channel: target.channel,
+                                chatId: target.chatId,
+                                threadId: target.threadId,
+                              },
                             })
                           }
                         >
@@ -171,18 +187,18 @@ export default function ReportsPage() {
                         </Button>
                       </>
                     )}
-                    <Button
+                    <ConfirmButton
                       variant="ghost"
                       size="sm"
                       className="text-destructive"
-                      onClick={() =>
-                        confirm(
-                          `Удалить отчёт «${r.name}»? История отправок удалится вместе с ним.`,
-                        ) && actions.remove.mutate(r.id)
-                      }
+                      disabled={actions.remove.isPending}
+                      title={`Удалить отчёт «${r.name}»?`}
+                      description="Отчёт перестанет отправляться. История отправок удалится вместе с ним."
+                      confirmLabel="Удалить"
+                      onConfirm={() => actions.remove.mutate(r.id)}
                     >
                       Удалить
-                    </Button>
+                    </ConfirmButton>
                   </div>
                 )}
               </CardContent>
@@ -191,98 +207,116 @@ export default function ReportsPage() {
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">История отправок</CardTitle>
-          <CardDescription>Что именно ушло: картинка и подпись</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {runs.isPending ? (
-            // Миниатюры отправок: название, дата со статусом и картинка 4:5.
-            <LoadingState className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'flex flex-col gap-2 rounded-lg border p-2.5',
-                    i === 2 && 'hidden md:flex',
-                  )}
-                >
-                  <Skeleton className="h-4 w-2/3" />
-                  <div className="flex items-center justify-between gap-1.5">
-                    <Skeleton className="h-3 w-20" />
+      {/* История — списком и свёрнута по умолчанию: открывают, когда нужно разобраться. */}
+      <Card className="gap-0 py-0">
+        <Collapsible>
+          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 px-4 py-4 text-left">
+            <div>
+              <div className="text-base font-medium">
+                История отправок
+                {runs.data?.runs.length ? (
+                  <span className="text-muted-foreground"> · {runs.data.runs.length}</span>
+                ) : null}
+              </div>
+              <div className="text-sm text-muted-foreground">Что именно ушло и куда доставлено</div>
+            </div>
+            <ChevronDown
+              className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-180"
+              aria-hidden
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="border-t">
+            {runs.isPending ? (
+              <LoadingState className="flex flex-col divide-y">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-3">
+                    <Skeleton className="h-12 w-10 shrink-0 rounded" />
+                    <div className="flex flex-1 flex-col gap-1.5">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
                     <Skeleton className="h-5 w-16 rounded-full" />
                   </div>
-                  <Skeleton className="aspect-[4/5] w-full" />
-                </div>
-              ))}
-            </LoadingState>
-          ) : !runs.data?.runs.length ? (
-            <p className="text-sm text-muted-foreground">Отправок ещё не было.</p>
-          ) : (
-            <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              {runs.data.runs.map((run) => {
-                const rep = reports.data?.reports.find((r) => r.id === run.reportId);
-                return (
-                  <li
-                    key={run.id}
-                    className="flex min-w-0 flex-col gap-2 rounded-lg border p-2.5 text-sm"
-                  >
-                    {/* Название, затем дата и статус одной строкой — миниатюры стоят на одной высоте. */}
-                    <div className="truncate font-medium">{rep?.name ?? 'Отчёт'}</div>
-                    <div className="flex items-center justify-between gap-1.5 text-xs text-muted-foreground">
-                      <span className="truncate">{when(run.sentAt ?? run.scheduledFor)}</span>
-                      <Badge
-                        variant={STATUS[run.status]?.variant ?? 'outline'}
-                        className="shrink-0"
-                      >
-                        {run.isTest ? 'тест · ' : ''}
-                        {STATUS[run.status]?.label ?? run.status}
-                      </Badge>
-                    </div>
-                    {run.imageUrl && (
-                      <a
-                        href={run.imageUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Открыть картинку целиком"
-                        className="block overflow-hidden rounded-md border transition-opacity hover:opacity-90"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={run.imageUrl}
-                          alt={`Картинка отчёта «${rep?.name ?? ''}»`}
-                          className="aspect-[4/5] w-full object-cover object-top"
-                          loading="lazy"
-                        />
-                      </a>
-                    )}
-                    {run.pdfUrl && (
-                      <a
-                        href={run.pdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-primary underline-offset-2 hover:underline"
-                      >
-                        Открыть PDF
-                      </a>
-                    )}
-                    {run.dataNote && <p className="text-xs text-destructive">⚠ {run.dataNote}</p>}
-                    {run.error && <p className="text-xs text-destructive">{run.error}</p>}
-                    {run.deliveries.some((d) => !d.ok) && (
-                      <p className="text-xs text-destructive">
-                        {run.deliveries
-                          .filter((d) => !d.ok)
-                          .map((d) => d.error)
-                          .join('; ')}
-                      </p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardContent>
+                ))}
+              </LoadingState>
+            ) : !runs.data?.runs.length ? (
+              <p className="px-4 py-3 text-sm text-muted-foreground">Отправок ещё не было.</p>
+            ) : (
+              <ul className="divide-y">
+                {runs.data.runs.map((run) => {
+                  const rep = reports.data?.reports.find((r) => r.id === run.reportId);
+                  return (
+                    <li key={run.id} className="flex min-w-0 gap-3 px-4 py-3 text-sm">
+                      {run.imageUrl ? (
+                        <a
+                          href={run.imageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Открыть картинку целиком"
+                          className="block h-12 w-10 shrink-0 overflow-hidden rounded border transition-opacity hover:opacity-90"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={run.imageUrl}
+                            alt={`Картинка отчёта «${rep?.name ?? ''}»`}
+                            className="size-full object-cover object-top"
+                            loading="lazy"
+                          />
+                        </a>
+                      ) : (
+                        <div className="h-12 w-10 shrink-0 rounded border bg-muted" />
+                      )}
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="truncate font-medium">{rep?.name ?? 'Отчёт'}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {when(run.sentAt ?? run.scheduledFor)}
+                          </span>
+                          <Badge
+                            variant={STATUS[run.status]?.variant ?? 'outline'}
+                            className="shrink-0 sm:ml-auto"
+                          >
+                            {run.isTest ? 'тест · ' : ''}
+                            {STATUS[run.status]?.label ?? run.status}
+                          </Badge>
+                        </div>
+                        {run.deliveries.length > 0 && (
+                          <ul className="flex flex-col gap-0.5 text-xs">
+                            {run.deliveries.map((d) => (
+                              <li
+                                key={targetKey(d)}
+                                className={cn(
+                                  'break-words',
+                                  d.ok ? 'text-muted-foreground' : 'text-destructive',
+                                )}
+                              >
+                                {nameOf(d)} — {d.ok ? '✓' : d.error}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {run.dataNote && (
+                          <p className="text-xs text-destructive">⚠ {run.dataNote}</p>
+                        )}
+                        {run.error && <p className="text-xs text-destructive">{run.error}</p>}
+                        {run.pdfUrl && (
+                          <a
+                            href={run.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-fit text-xs text-primary underline-offset-2 hover:underline"
+                          >
+                            Открыть PDF
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {editing && (
@@ -290,7 +324,8 @@ export default function ReportsPage() {
           key={editing === 'new' ? 'new' : editing.id}
           onClose={() => setEditing(null)}
           report={editing === 'new' ? null : editing}
-          chats={chatList}
+          targets={allTargets}
+          whatsappConnected={targetsQ.data?.whatsapp.status === 'connected'}
         />
       )}
     </div>

@@ -1,12 +1,17 @@
 'use client';
 
-import { type ReportInput, reportRunsResponseSchema, reportsResponseSchema } from '@lidomer/shared';
+import {
+  type Recipient,
+  type ReportInput,
+  reportRunsResponseSchema,
+  reportsResponseSchema,
+  reportTargetsResponseSchema,
+} from '@lidomer/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useApi } from '@/lib/api';
 import { useWorkspace } from '@/lib/workspace';
-import { useTelegramChats } from '../integrations/use-telegram';
 
 export function useReportsData() {
   const api = useApi();
@@ -16,13 +21,17 @@ export function useReportsData() {
     queryKey: ['reports', workspace.id],
     queryFn: () => api(reportsResponseSchema, '/reports', opts),
   });
-  const chats = useTelegramChats();
+  // Куда можно отправить: Telegram и WhatsApp одним списком.
+  const targets = useQuery({
+    queryKey: ['report-targets', workspace.id],
+    queryFn: () => api(reportTargetsResponseSchema, '/reports/targets', opts),
+  });
   const runs = useQuery({
     queryKey: ['report-runs', workspace.id],
     queryFn: () => api(reportRunsResponseSchema, '/reports/runs', opts),
     refetchInterval: 30_000,
   });
-  return { reports, chats, runs };
+  return { reports, targets, runs };
 }
 
 export function useReportActions() {
@@ -32,7 +41,8 @@ export function useReportActions() {
   const opts = { workspaceId: workspace.id };
   const refresh = () =>
     qc.invalidateQueries({
-      predicate: (q) => ['reports', 'report-runs', 'tg-chats'].includes(String(q.queryKey[0])),
+      predicate: (q) =>
+        ['reports', 'report-runs', 'report-targets'].includes(String(q.queryKey[0])),
     });
   const onError = (e: Error) => toast.error(e.message);
   return {
@@ -55,19 +65,11 @@ export function useReportActions() {
       onError,
     }),
     test: useMutation({
-      mutationFn: ({
-        id,
-        chatId,
-        threadId,
-      }: {
-        id: string;
-        chatId: string;
-        threadId: string | null;
-      }) =>
+      mutationFn: ({ id, to }: { id: string; to: Recipient }) =>
         api(z.object({ status: z.string(), error: z.string().nullable() }), `/reports/${id}/test`, {
           ...opts,
           method: 'POST',
-          body: { chatId, threadId },
+          body: to,
         }),
       onSuccess: async (run) => {
         if (run.status === 'sent') toast.success('Тест отправлен');

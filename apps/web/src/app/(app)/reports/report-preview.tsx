@@ -45,7 +45,7 @@ function ScaledImage({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Предпросмотр отчёта: те же цифры, страницы и подпись, что уйдут в Telegram, — за период
+ * Предпросмотр отчёта: те же цифры, страницы и подпись, что уйдут в чат, — за период
  * «как если бы отчёт ушёл сейчас». Ничего не сохраняет и не отправляет.
  */
 export function ReportPreview({ name, config }: { name: string; config: ReportConfig }) {
@@ -85,7 +85,7 @@ export function ReportPreview({ name, config }: { name: string; config: ReportCo
   return (
     <div className="flex flex-col gap-2">
       <div className="text-xs text-muted-foreground">
-        Так придёт в Telegram · {REPORT_FORMAT_LABELS[config.format]}
+        Так придёт в чат · {REPORT_FORMAT_LABELS[config.format]}
       </div>
       {/* Сообщение в чате: вложение и подпись под ним. */}
       <div className="flex flex-col gap-2 rounded-xl bg-muted/60 p-2">
