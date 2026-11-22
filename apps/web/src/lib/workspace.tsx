@@ -2,7 +2,7 @@
 
 import { meResponseSchema, type WorkspaceSummary } from '@lidomer/shared';
 import { useQuery } from '@tanstack/react-query';
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useApi } from '@/lib/api';
 
 const STORAGE_KEY = 'lidomer.workspace';
@@ -25,6 +25,15 @@ export function selectWorkspace(id: string): void {
   }
 }
 
+/** Забыть выбор: после следующего входа участник нескольких компаний выберет заново. */
+export function clearWorkspaceSelection(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* нечего забывать */
+  }
+}
+
 function readStored(): string | null {
   try {
     return localStorage.getItem(STORAGE_KEY);
@@ -33,41 +42,45 @@ function readStored(): string | null {
   }
 }
 
-/** Загружает /me и держит выбранную компанию. Пока не загружено — показывает `fallback`. */
+/**
+ * Загружает /me и держит выбранную компанию. Пока не загружено — `loading`; компаний нет —
+ * `empty`; компаний несколько и ни одна не выбрана (после входа) — `choose`.
+ */
 export function WorkspaceProvider({
   children,
   loading,
   error,
   empty,
+  choose,
 }: {
   children: ReactNode;
   loading: ReactNode;
   error: (retry: () => void, message: string) => ReactNode;
   empty: ReactNode;
+  choose: (workspaces: WorkspaceSummary[], select: (id: string) => void) => ReactNode;
 }) {
   const api = useApi();
   const me = useQuery({ queryKey: ['me'], queryFn: () => api(meResponseSchema, '/me') });
   // До загрузки /me разметка не зависит от выбора, поэтому читать localStorage сразу безопасно.
   const [selectedId, setSelectedId] = useState<string | null>(readStored);
 
+  const select = useCallback((id: string) => {
+    setSelectedId(id);
+    selectWorkspace(id);
+  }, []);
+  const list = useMemo(() => me.data?.workspaces ?? [], [me.data]);
   const value = useMemo<WorkspaceState | null>(() => {
-    const list = me.data?.workspaces ?? [];
-    const workspace = list.find((w) => w.id === selectedId) ?? list[0];
+    // Одна компания — сразу она; несколько — только явно выбранная.
+    const workspace =
+      list.find((w) => w.id === selectedId) ?? (list.length === 1 ? list[0] : undefined);
     if (!me.data || !workspace) return null;
-    return {
-      workspace,
-      workspaces: list,
-      email: me.data.user.email,
-      select: (id) => {
-        setSelectedId(id);
-        selectWorkspace(id);
-      },
-    };
-  }, [me.data, selectedId]);
+    return { workspace, workspaces: list, email: me.data.user.email, select };
+  }, [me.data, list, selectedId, select]);
 
   if (me.isPending) return loading;
   if (me.isError) return error(() => void me.refetch(), me.error.message);
-  if (!value) return empty;
+  if (!list.length) return empty;
+  if (!value) return choose(list, select);
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 

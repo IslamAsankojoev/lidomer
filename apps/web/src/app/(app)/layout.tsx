@@ -2,6 +2,7 @@
 
 import { Suspense, type ReactNode } from 'react';
 import { AppShell, AppShellSkeleton } from '@/components/app-shell';
+import { ChooseWorkspace } from '@/components/choose-workspace';
 import { CreateWorkspace } from '@/components/create-workspace';
 import { ErrorState } from '@/components/state';
 import { WorkspaceProvider } from '@/lib/workspace';
@@ -21,6 +22,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       error={(retry, message) => (
         <Centered>
           <ErrorState message={message} onRetry={retry} />
+        </Centered>
+      )}
+      choose={(workspaces, select) => (
+        <Centered>
+          <ChooseWorkspace workspaces={workspaces} onSelect={select} />
         </Centered>
       )}
       empty={

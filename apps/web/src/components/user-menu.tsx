@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSignOut } from '@/lib/use-sign-out';
+import { WorkspaceLogo } from './workspace-logo';
 import { useWorkspace } from '@/lib/workspace';
 
 /** `icon` — кружок в шапке телефона; `card` — карточка внизу бокового меню. */
@@ -72,12 +73,21 @@ export function UserMenu({ variant = 'icon' }: { variant?: 'icon' | 'card' }) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Компания
+                Переключить компанию
               </DropdownMenuLabel>
               {workspaces.map((w) => (
                 <DropdownMenuItem key={w.id} onClick={() => select(w.id)}>
-                  <Check className={w.id === workspace.id ? 'size-4' : 'size-4 opacity-0'} />
-                  {w.name}
+                  <WorkspaceLogo name={w.name} logoUrl={w.logoUrl} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{w.name}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {ROLE_LABELS[w.role]}
+                    </span>
+                  </span>
+                  <Check
+                    className={w.id === workspace.id ? 'size-4' : 'size-4 opacity-0'}
+                    aria-label={w.id === workspace.id ? 'Выбрана' : undefined}
+                  />
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
