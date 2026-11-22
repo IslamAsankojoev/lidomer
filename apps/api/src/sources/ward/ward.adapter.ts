@@ -2,7 +2,7 @@ import { wardConversations, wardLeads } from '@lidomer/db';
 import { shiftDay, toDayKey } from '@lidomer/shared';
 import { z } from 'zod';
 import { maskSecret } from '../../common/secret-box';
-import { excludedSet } from '../../common/upsert';
+import { excludedSet, onlyChanged } from '../../common/upsert';
 import { isDue, type JobSpec, type SourceAdapter } from '../types';
 import { parseWardSource } from './parse-source';
 import {
@@ -105,7 +105,7 @@ export function createWardAdapter(clientOpts: WardClientOptions = {}): SourceAda
           )
           .onConflictDoUpdate({
             target: [wardLeads.workspaceId, wardLeads.id],
-            set: excludedSet(wardLeads, ['workspaceId', 'id']),
+            ...onlyChanged(wardLeads, excludedSet(wardLeads, ['workspaceId', 'id'])),
           });
       }
 
@@ -136,7 +136,10 @@ export function createWardAdapter(clientOpts: WardClientOptions = {}): SourceAda
           )
           .onConflictDoUpdate({
             target: [wardConversations.workspaceId, wardConversations.id],
-            set: excludedSet(wardConversations, ['workspaceId', 'id']),
+            ...onlyChanged(
+              wardConversations,
+              excludedSet(wardConversations, ['workspaceId', 'id']),
+            ),
           });
       }
       return { records: leads.length + convs.length };

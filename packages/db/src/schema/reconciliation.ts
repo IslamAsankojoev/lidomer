@@ -120,6 +120,22 @@ export const metricsDaily = pgTable(
   (t) => [primaryKey({ columns: [t.workspaceId, t.day, t.channel, t.adKey] })],
 ).enableRLS();
 
+/**
+ * Состояние пересборки журнала компании (решение 0013): до какого момента изменения источников
+ * уже учтены, когда была полная пересборка и была ли тогда подключена Meta.
+ */
+export const reconcileState = pgTable('reconcile_state', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  /** Изменения источников с `synced_at` до этого момента (время базы) уже в leads и metrics_daily. */
+  seenAt: timestamp('seen_at', { withTimezone: true }).notNull(),
+  /** Последняя полная пересборка. */
+  fullAt: timestamp('full_at', { withTimezone: true }).notNull(),
+  /** Была ли подключена Meta при последней пересборке: сменилось — нужна полная. */
+  metaConnected: boolean('meta_connected').notNull(),
+}).enableRLS();
+
 /** Курс валюты к сому по дням (справочная таблица, без workspace_id). */
 export const fxRates = pgTable(
   'fx_rates',

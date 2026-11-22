@@ -16,6 +16,12 @@ export interface InsightIn {
   actions: { action_type: string; value: string }[];
 }
 
+/** Поля строки журнала, из которых считаются метрики. */
+export type MetricLead = Pick<
+  LeadRow,
+  'day' | 'channel' | 'adKey' | 'isRepeat' | 'phone' | 'status' | 'amountMinor'
+>;
+
 export interface MetricRow {
   day: string;
   channel: LeadChannel;
@@ -35,7 +41,7 @@ export interface MetricRow {
  * продажа — по любой строке со статусом «продажа». Расход и лиды Meta — только для рекламы.
  */
 export function buildMetrics(
-  leads: LeadRow[],
+  leads: MetricLead[],
   insights: InsightIn[] | null,
   leadActions: string[] = DEFAULT_META_LEAD_ACTIONS,
 ): MetricRow[] {

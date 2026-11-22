@@ -2,7 +2,7 @@ import { b24Contacts, b24Deals, b24Stages } from '@lidomer/db';
 import { currencyDigits, normalizePhone, normalizeStageSemantics } from '@lidomer/shared';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { excludedSet } from '../../common/upsert';
+import { excludedSet, onlyChanged } from '../../common/upsert';
 import { isDue, type JobSpec, type SourceAdapter } from '../types';
 import { B24Client, type B24ClientOptions, b24WebhookUrlSchema } from './b24.client';
 
@@ -130,7 +130,7 @@ async function syncContacts(
     )
     .onConflictDoUpdate({
       target: [b24Contacts.workspaceId, b24Contacts.id],
-      set: excludedSet(b24Contacts, ['workspaceId', 'id']),
+      ...onlyChanged(b24Contacts, excludedSet(b24Contacts, ['workspaceId', 'id'])),
     });
   return contacts.length;
 }
@@ -300,14 +300,19 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
             // Сопоставление владельца (mapped_status) не трогаем.
             .onConflictDoUpdate({
               target: [b24Stages.workspaceId, b24Stages.stageId],
-              set: {
-                categoryId: sql`excluded.category_id`,
-                categoryName: sql`excluded.category_name`,
-                name: sql`excluded.name`,
-                semantics: sql`excluded.semantics`,
-                sort: sql`excluded.sort`,
-                updatedAt: new Date(),
-              },
+              // updated_at двигается только при изменении: по нему сверка видит смену стадий.
+              ...onlyChanged(
+                b24Stages,
+                {
+                  categoryId: sql`excluded.category_id`,
+                  categoryName: sql`excluded.category_name`,
+                  name: sql`excluded.name`,
+                  semantics: sql`excluded.semantics`,
+                  sort: sql`excluded.sort`,
+                  updatedAt: new Date(),
+                },
+                ['updatedAt'],
+              ),
             });
         }
         return { records: stages.length };
@@ -340,7 +345,7 @@ export function createB24Adapter(clientOpts: B24ClientOptions = {}): SourceAdapt
               .values(page.map((d) => mapDeal(ctx.workspaceId, d, form)))
               .onConflictDoUpdate({
                 target: [b24Deals.workspaceId, b24Deals.id],
-                set: excludedSet(b24Deals, ['workspaceId', 'id']),
+                ...onlyChanged(b24Deals, excludedSet(b24Deals, ['workspaceId', 'id'])),
               });
             records += page.length;
             afterId = String(page[page.length - 1]!.ID);

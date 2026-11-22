@@ -30,6 +30,10 @@ const workspaceId = () =>
     .notNull()
     .references(() => workspaces.id, { onDelete: 'cascade' });
 
+/**
+ * Когда строка последний раз **изменилась** при синхронизации (время базы). Upsert'ы не трогают
+ * строку без изменений (`onlyChanged`), поэтому по этой колонке сверка находит изменения (решение 0013).
+ */
 const syncedAt = () =>
   timestamp('synced_at', { withTimezone: true })
     .notNull()
@@ -191,6 +195,7 @@ export const metaInsightsDaily = pgTable(
   (t) => [
     primaryKey({ columns: [t.workspaceId, t.adId, t.day] }),
     index('meta_insights_daily_day_idx').on(t.workspaceId, t.day),
+    index('meta_insights_daily_synced_idx').on(t.workspaceId, t.syncedAt),
   ],
 ).enableRLS();
 
@@ -262,6 +267,7 @@ export const wardLeads = pgTable(
     primaryKey({ columns: [t.workspaceId, t.id] }),
     index('ward_leads_created_idx').on(t.workspaceId, t.createdAt),
     index('ward_leads_crm_idx').on(t.workspaceId, t.crmId),
+    index('ward_leads_synced_idx').on(t.workspaceId, t.syncedAt),
   ],
 ).enableRLS();
 
@@ -320,6 +326,7 @@ export const b24Deals = pgTable(
   (t) => [
     primaryKey({ columns: [t.workspaceId, t.id] }),
     index('b24_deals_updated_idx').on(t.workspaceId, t.updatedAt),
+    index('b24_deals_synced_idx').on(t.workspaceId, t.syncedAt),
   ],
 ).enableRLS();
 
@@ -334,7 +341,10 @@ export const b24Contacts = pgTable(
     phone: text('phone'),
     syncedAt: syncedAt(),
   },
-  (t) => [primaryKey({ columns: [t.workspaceId, t.id] })],
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.id] }),
+    index('b24_contacts_synced_idx').on(t.workspaceId, t.syncedAt),
+  ],
 ).enableRLS();
 
 // ---------- Задачи ----------

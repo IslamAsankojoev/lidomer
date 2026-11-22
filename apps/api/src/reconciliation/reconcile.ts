@@ -297,18 +297,39 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
   return result;
 }
 
+/** Что нужно для пометки повторов: время, ключи человека и сама пометка. */
+export interface RepeatRow {
+  id: string;
+  createdAt: Date;
+  phone: string | null;
+  instagram: string | null;
+  isRepeat: boolean;
+  repeatOf: string | null;
+}
+
+/** Первое обращение по ключу человека (`ig:…`, `ph:…`): id строки и её время. */
+export type FirstByKey = Map<string, { id: string; at: number }>;
+
+export const personKeys = (r: Pick<RepeatRow, 'phone' | 'instagram'>) =>
+  [r.instagram && `ig:${r.instagram}`, r.phone && `ph:${r.phone}`].filter(Boolean) as string[];
+
+export const byTime = (a: RepeatRow, b: RepeatRow) =>
+  a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id);
+
 /**
  * Повторное обращение: тот же Instagram или телефон в окне N дней от первого обращения.
- * После окна — снова новый лид.
+ * После окна — снова новый лид. `firstBy` — состояние на начало `rows`, если это хвост журнала
+ * (частичная пересборка, решение 0013); по умолчанию — пустое (весь журнал).
  */
-export function markRepeats(rows: LeadRow[], windowDays: number): void {
-  rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
+export function markRepeats(
+  rows: RepeatRow[],
+  windowDays: number,
+  firstBy: FirstByKey = new Map(),
+): void {
+  rows.sort(byTime);
   const windowMs = windowDays * 86_400_000;
-  const firstBy = new Map<string, { id: string; at: number }>();
   for (const r of rows) {
-    const keys = [r.instagram && `ig:${r.instagram}`, r.phone && `ph:${r.phone}`].filter(
-      Boolean,
-    ) as string[];
+    const keys = personKeys(r);
     const t = r.createdAt.getTime();
     const prev = keys.map((k) => firstBy.get(k)).find((p) => p && t - p.at <= windowMs);
     if (prev && windowDays > 0) {

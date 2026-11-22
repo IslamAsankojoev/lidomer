@@ -6,7 +6,7 @@ import { HttpError } from '../../common/http';
 import { mapLimit } from '../../common/map-limit';
 import { maskSecret } from '../../common/secret-box';
 import { PREVIEWS_BUCKET, type Storage } from '../../common/storage';
-import { excludedSet } from '../../common/upsert';
+import { excludedSet, onlyChanged } from '../../common/upsert';
 import { isDue, type JobSpec, type SourceAdapter } from '../types';
 import { exchangeLoginCode, MetaClient, type MetaClientOptions } from './meta.client';
 
@@ -179,7 +179,10 @@ export function createMetaAdapter(deps: MetaAdapterDeps = {}): SourceAdapter<Met
             // Выбор аккаунтов владельцем (enabled) не трогаем.
             .onConflictDoUpdate({
               target: [metaAdAccounts.workspaceId, metaAdAccounts.id],
-              set: excludedSet(metaAdAccounts, ['workspaceId', 'id', 'enabled']),
+              ...onlyChanged(
+                metaAdAccounts,
+                excludedSet(metaAdAccounts, ['workspaceId', 'id', 'enabled']),
+              ),
             });
         }
         const enabled = await ctx.db
@@ -216,7 +219,7 @@ export function createMetaAdapter(deps: MetaAdapterDeps = {}): SourceAdapter<Met
               )
               .onConflictDoUpdate({
                 target: [metaCampaigns.workspaceId, metaCampaigns.id],
-                set: excludedSet(metaCampaigns, ['workspaceId', 'id']),
+                ...onlyChanged(metaCampaigns, excludedSet(metaCampaigns, ['workspaceId', 'id'])),
               });
           if (adsets.length)
             await ctx.db
@@ -235,7 +238,7 @@ export function createMetaAdapter(deps: MetaAdapterDeps = {}): SourceAdapter<Met
               )
               .onConflictDoUpdate({
                 target: [metaAdsets.workspaceId, metaAdsets.id],
-                set: excludedSet(metaAdsets, ['workspaceId', 'id']),
+                ...onlyChanged(metaAdsets, excludedSet(metaAdsets, ['workspaceId', 'id'])),
               });
           // Превью: качаем только новые креативы (имя файла — объявление, креатив и размер),
           // параллельно по 8: на синхронизацию у tick меньше минуты.
@@ -275,10 +278,10 @@ export function createMetaAdapter(deps: MetaAdapterDeps = {}): SourceAdapter<Met
               )
               .onConflictDoUpdate({
                 target: [metaAds.workspaceId, metaAds.id],
-                set: {
+                ...onlyChanged(metaAds, {
                   ...excludedSet(metaAds, ['workspaceId', 'id', 'previewPath']),
                   previewPath: sql`coalesce(excluded.preview_path, ${metaAds.previewPath})`,
-                },
+                }),
               });
           }
           // Прежние копии заменённых превью больше не нужны.
@@ -333,7 +336,10 @@ export function createMetaAdapter(deps: MetaAdapterDeps = {}): SourceAdapter<Met
                 metaInsightsDaily.adId,
                 metaInsightsDaily.day,
               ],
-              set: excludedSet(metaInsightsDaily, ['workspaceId', 'adId', 'day']),
+              ...onlyChanged(
+                metaInsightsDaily,
+                excludedSet(metaInsightsDaily, ['workspaceId', 'adId', 'day']),
+              ),
             });
           records += rows.length;
         }
