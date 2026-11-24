@@ -17,7 +17,7 @@ import { SourceLogo } from '@/components/source-badge';
 
 type Kind = 'auto' | 'ad' | 'excluded';
 
-/** Правила подсчёта: окно повторов и роль каждого источника сделок Bitrix24. */
+/** Правила подсчёта: окно повторов, какие воронки Bitrix24 — лиды, роль каждого источника сделок. */
 export function CountingCard() {
   const api = useApi();
   const { workspace } = useWorkspace();
@@ -68,6 +68,13 @@ export function CountingCard() {
     });
   };
 
+  const countsCategory = (id: number) => !settings?.excludedCategoryIds.includes(id);
+  const setCategory = (id: number, counted: boolean) => {
+    if (!settings) return;
+    const without = settings.excludedCategoryIds.filter((x) => x !== id);
+    setDraft({ ...settings, excludedCategoryIds: counted ? without : [...without, id] });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -112,6 +119,41 @@ export function CountingCard() {
               />
               дней
             </label>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <SourceLogo source="bitrix24" />
+                Воронки Bitrix24
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Лид — сделка в отмеченной воронке. Сделки неотмеченных (например, «Аренда») не
+                считаются, даже если пришли через WARD.
+              </p>
+              <ul className="divide-y rounded-lg border">
+                {(q.data?.bitrixCategories ?? []).map((c) => (
+                  <li key={c.id}>
+                    <label className="flex items-center justify-between gap-3 px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm">{c.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {int(c.deals30d)} сделок за 30 дней
+                        </div>
+                      </div>
+                      <span className="flex shrink-0 items-center gap-2 text-sm">
+                        Считать лидами
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-primary"
+                          disabled={!canEdit || save.isPending}
+                          checked={countsCategory(c.id)}
+                          onChange={(e) => setCategory(c.id, e.target.checked)}
+                        />
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-1.5 text-sm font-medium">

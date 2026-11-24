@@ -41,6 +41,11 @@ export const summaryResponseSchema = z.object({
   /** Курс доллара к сому на конец периода — для «≈ … сом». */
   fx: z.object({ rate: z.number(), source: z.string(), day: z.string() }).nullable(),
   sources: z.array(sourceFreshnessSchema),
+  /**
+   * Журнал лидов и метрики: когда последний раз пересчитаны и не отстали ли от синхронизации
+   * (пересчёт падает — цифры старые, хотя источники свежие).
+   */
+  journal: z.object({ updatedAt: z.string().nullable(), stale: z.boolean() }),
   /** Дни периода, по которым данные ещё могут измениться (последние 7). */
   preliminaryFrom: dayKeySchema.nullable(),
 });
@@ -80,7 +85,6 @@ export const leadsQuerySchema = z.object({
   flag: leadFlagSchema.optional(),
   hasPhone: z.enum(['yes', 'no']).optional(),
   adKey: z.string().optional(),
-  includeRepeats: z.enum(['yes', 'no']).optional(),
   limit: z.coerce.number().int().min(1).max(500).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
@@ -132,9 +136,17 @@ export const bitrixSourceSchema = z.object({
   deals30d: z.number().int(),
   withUtm30d: z.number().int(),
 });
+/** Воронка (направление) сделок Bitrix24; id 0 — основная. */
+export const bitrixCategorySchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  /** Сделок за последние 30 дней. */
+  deals30d: z.number().int(),
+});
 export const countingResponseSchema = z.object({
   settings: countingSettingsSchema,
   bitrixSources: z.array(bitrixSourceSchema),
+  bitrixCategories: z.array(bitrixCategorySchema),
 });
 export type CountingResponse = z.infer<typeof countingResponseSchema>;
 
@@ -172,8 +184,21 @@ export const leadTimelineEventSchema = z.object({
   details: z.string().nullable(),
 });
 
+/** Обращение того же клиента: первое и его повторы в окне повторов (без контактов). */
+export const leadContactSchema = z.object({
+  id: z.string(),
+  createdAt: z.string(),
+  channel: leadChannelSchema,
+  adName: z.string().nullable(),
+  status: dealStatusSchema,
+  isRepeat: z.boolean(),
+});
+export type LeadContact = z.infer<typeof leadContactSchema>;
+
 export const leadDetailResponseSchema = z.object({
   item: leadItemSchema,
+  /** Все обращения этого клиента по времени, включая этот лид; одно — повторов нет. */
+  contacts: z.array(leadContactSchema),
   facts: z.record(z.string(), z.unknown()).nullable(),
   sourceText: z.string().nullable(),
   timeline: z.array(leadTimelineEventSchema),

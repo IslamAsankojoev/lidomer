@@ -11,6 +11,7 @@ import { FxService } from '../reconciliation/fx.service';
 import { ReportsService } from '../reports/reports.service';
 import { TelegramService } from '../reports/telegram.service';
 import { ReconciliationService } from '../reconciliation/reconciliation.service';
+import { reconcileErrorText } from '../reconciliation/journal-health';
 import { JobQueue, jobMessageSchema } from './queue';
 import { Retention } from './retention';
 import { Watchdog } from './watchdog';
@@ -87,16 +88,31 @@ export class JobRunner {
       } else report.failed++;
     }
     // Синхронизация прошла — учитываем в журнале и метриках то, что изменилось (решение 0013).
-    for (const ws of touched) {
-      try {
-        if ((await this.reconciliation.refresh(ws)) !== 'skip') report.rebuilt++;
-      } catch (err) {
-        this.log.error(
-          `Сверка ${ws} не удалась: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
+    for (const ws of touched) await this.reconcile(ws, report);
     return report;
+  }
+
+  /**
+   * Пересборка журнала компании. Сбой не молчит: алерт при переходе в ошибку и при восстановлении,
+   * отметка в `reconcile_state` — по ней кабинет и отчёты помечают цифры как несвежие.
+   */
+  private async reconcile(ws: string, report: TickReport): Promise<void> {
+    try {
+      if ((await this.reconciliation.refresh(ws)) !== 'skip') report.rebuilt++;
+    } catch (err) {
+      const error = reconcileErrorText(err);
+      this.log.error(`Сверка ${ws} не удалась: ${error}`);
+      // Отметку записать не вышло (например, нет таблицы) — всё равно сообщаем.
+      const first = await this.reconciliation.markFailed(ws, error).catch(() => true);
+      if (first) await this.telegram.reconcileAlert(ws, error).catch(() => undefined);
+      return;
+    }
+    try {
+      if (await this.reconciliation.clearFailure(ws))
+        await this.telegram.reconcileRecovered(ws).catch(() => undefined);
+    } catch (err) {
+      this.log.warn(`Сверка ${ws}: отметку сбоя не снять: ${reconcileErrorText(err)}`);
+    }
   }
 
   /** Задача отчёта: ждём свежих данных (повтор через 2 минуты) или отправляем. */

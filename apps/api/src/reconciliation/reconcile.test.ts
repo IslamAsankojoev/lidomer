@@ -69,21 +69,41 @@ describe('сверка', () => {
     });
   });
 
-  it('лид без сделки — флаг и статус WARD', () => {
-    const [r] = reconcile(
-      input({ wardLeads: [ward(2, { crmEntity: 'lead', crmId: null, status: 'new' })] }),
+  it('лид = сделка: лид WARD без сделки (не оставил номер) в журнал не попадает', () => {
+    const rows = reconcile(
+      input({
+        wardLeads: [
+          ward(2, { crmEntity: 'lead', crmId: null }),
+          ward(3, { crmEntity: 'deal', crmId: null }),
+          // Ссылка есть, но такой сделки в Bitrix24 нет (удалена).
+          ward(4, { crmId: '404' }),
+        ],
+      }),
     );
-    expect(r!.flags).toContain('no_deal');
-    expect(r!.status).toBe('in_work');
+    expect(rows).toEqual([]);
+  });
+
+  it('два лида WARD на одну сделку — один лид, по самому раннему', () => {
+    const rows = reconcile(
+      input({
+        wardLeads: [
+          ward(31, { crmId: '3000', createdAt: new Date('2026-11-10T09:00:00Z') }),
+          ward(30, { crmId: '3000', createdAt: new Date('2026-11-10T08:00:00Z') }),
+        ],
+        deals: [deal('3000')],
+      }),
+    );
+    expect(rows.map((r) => [r.id, r.dealId])).toEqual([['ward:30', '3000']]);
   });
 
   it('Direct без метки — отдельная группа, пост — органика', () => {
     const rows = reconcile(
       input({
         wardLeads: [
-          ward(3, { sourceKind: 'direct', sourceAdId: null, crmId: null }),
-          ward(4, { sourceKind: 'post', sourceAdId: null, sourcePostId: '1796', crmId: null }),
+          ward(3, { sourceKind: 'direct', sourceAdId: null }),
+          ward(4, { sourceKind: 'post', sourceAdId: null, sourcePostId: '1796' }),
         ],
+        deals: [deal('1003'), deal('1004')],
       }),
     );
     expect(rows.map((r) => r.channel).sort()).toEqual(['direct_unknown', 'organic']);
@@ -121,11 +141,11 @@ describe('сверка', () => {
         wardLeads: [
           ward(20, {
             phone: '+996555000020',
-            crmId: null,
             createdAt: new Date('2026-11-01T10:00:00Z'),
           }),
         ],
         deals: [
+          deal('1020', { createdAt: new Date('2026-11-01T10:00:05Z') }),
           deal('9020', {
             sourceId: '4',
             utmSource: 'ig',
@@ -157,6 +177,23 @@ describe('сверка', () => {
     expect(rows.map((r) => [r.dealId, r.channel])).toEqual([['6001', 'ad']]);
   });
 
+  it('воронка исключена в настройках — её сделки не лиды, ни сами, ни через лид WARD', () => {
+    const rows = reconcile(
+      input({
+        wardLeads: [ward(40, { crmId: '4000' })],
+        deals: [
+          deal('4000', { categoryId: 1 }),
+          deal('4001', { categoryId: 1 }),
+          deal('4002', { categoryId: 0 }),
+          // Без воронки — основная.
+          deal('4003', { categoryId: null }),
+        ],
+        settings: { ...DEFAULT_COUNTING, excludedCategoryIds: [1] },
+      }),
+    );
+    expect(rows.map((r) => r.dealId).sort()).toEqual(['4002', '4003']);
+  });
+
   it('сделка WARD с рекламной меткой без лида в выгрузке — флаг', () => {
     const [r] = reconcile(
       input({
@@ -173,7 +210,10 @@ describe('сверка', () => {
 
   it('день — по Бишкеку: 19:30 UTC это уже следующий день', () => {
     const [r] = reconcile(
-      input({ wardLeads: [ward(8, { createdAt: new Date('2026-11-15T19:30:00Z'), crmId: null })] }),
+      input({
+        wardLeads: [ward(8, { createdAt: new Date('2026-11-15T19:30:00Z') })],
+        deals: [deal('1008')],
+      }),
     );
     expect(r!.day).toBe('2026-11-16');
   });
@@ -184,11 +224,11 @@ describe('сверка', () => {
         wardLeads: [
           ward(9, {
             phone: '0555 000 009',
-            crmId: null,
             createdAt: new Date('2026-10-01T10:00:00Z'),
           }),
         ],
         deals: [
+          deal('1009', { createdAt: new Date('2026-10-01T10:00:05Z') }),
           deal('9001', { contactId: 'c9', createdAt: new Date('2026-10-20T10:00:00Z') }),
           deal('9002', { contactId: 'c9', createdAt: new Date('2026-11-05T10:00:00Z') }),
         ],
@@ -203,10 +243,11 @@ describe('сверка', () => {
   });
 
   it('ручные правки: канал меняется, исключённый лид пропадает, источники не трогаются', () => {
-    const wardLeads = [ward(10, { crmId: null }), ward(11, { crmId: null, instagram: '@other' })];
+    const wardLeads = [ward(10), ward(11, { instagram: '@other' })];
     const rows = reconcile(
       input({
         wardLeads,
+        deals: [deal('1010'), deal('1011')],
         overrides: [
           { id: 1, leadId: 'ward:10', field: 'channel', value: 'organic' },
           { id: 2, leadId: 'ward:11', field: 'excluded', value: true },
@@ -219,16 +260,20 @@ describe('сверка', () => {
 });
 
 describe('метрики по дням', () => {
-  it('сумма лидов по метрикам = число не повторных строк журнала', () => {
+  it('лид = сделка: сумма лидов по метрикам = число строк журнала, повторы тоже', () => {
     const rows = reconcile(
       input({
         wardLeads: [
           ward(1),
-          ward(2, { crmId: null, phone: '+996555000002' }),
-          ward(3, { sourceKind: 'post', sourceAdId: null, crmId: null }),
+          ward(2, { phone: '+996555000002' }),
+          ward(3, { sourceKind: 'post', sourceAdId: null }),
+          // Без сделки — не лид, в метрики не идёт.
+          ward(4, { crmId: null }),
         ],
         deals: [
           deal('1001', { stageId: 'WON', amountMinor: 500 }),
+          deal('1002'),
+          deal('1003'),
           deal('8001', { utmSource: 'fb', utmCampaign: 'К', contactId: 'c' }),
         ],
         contacts: new Map([['c', { name: null, phone: '+996555000002' }]]),
@@ -236,7 +281,9 @@ describe('метрики по дням', () => {
     );
     const m = buildMetrics(rows, null);
     const leads = m.reduce((a, r) => a + r.leads, 0);
-    expect(leads).toBe(rows.filter((r) => !r.isRepeat).length);
+    expect(rows.some((r) => r.wardLeadId === 4)).toBe(false);
+    expect(leads).toBe(rows.length);
+    expect(leads).toBe(4);
     expect(m.reduce((a, r) => a + r.repeats, 0)).toBe(1);
     expect(m.reduce((a, r) => a + r.sales, 0)).toBe(1);
     expect(m.reduce((a, r) => a + r.salesAmountMinor, 0)).toBe(500);
@@ -326,7 +373,11 @@ describe('привязка к объявлениям Meta', () => {
 
   it('лид WARD по id объявления получает названия кампании и группы из Meta', () => {
     const [r] = reconcile(
-      input({ metaAds, wardLeads: [ward(7, { sourceAdId: '900003', adTitle: 'заголовок' })] }),
+      input({
+        metaAds,
+        wardLeads: [ward(7, { sourceAdId: '900003', adTitle: 'заголовок' })],
+        deals: [deal('1007')],
+      }),
     );
     expect(r).toMatchObject({
       adKey: '900003',
