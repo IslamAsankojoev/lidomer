@@ -185,6 +185,20 @@ export class TelegramService {
     await this.safeSend(chatId, text, null);
   }
 
+  /** Алерт: журнал лидов и метрики перестали пересчитываться. `error` — уже без данных клиентов. */
+  async reconcileAlert(workspaceId: string, error: string): Promise<void> {
+    await this.alert(
+      workspaceId,
+      `⚠️ Лиды и метрики не пересчитываются: ${error}\n\n` +
+        'Синхронизация идёт, но кабинет и отчёты показывают цифры последнего удачного пересчёта. ' +
+        'Отчёты уйдут с пометкой.',
+    );
+  }
+
+  async reconcileRecovered(workspaceId: string): Promise<void> {
+    await this.alert(workspaceId, '✅ Лиды и метрики снова пересчитываются: цифры актуальные.');
+  }
+
   /** Алерт: интеграция в статусе «Ошибка» или «Нужно переподключить». Без персональных данных. */
   async integrationAlert(
     workspaceId: string,

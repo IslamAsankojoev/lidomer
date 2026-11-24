@@ -17,8 +17,10 @@ import {
   costPerLead,
   type Counts,
   type LeadItem,
+  type LeadFlag,
   type LeadMetric,
   type LeadsQuery,
+  LEAD_FLAGS,
   shiftDay,
   today,
 } from '@lidomer/shared';
@@ -33,10 +35,12 @@ import {
   isNotNull,
   lte,
   not,
+  or,
   sql,
   type SQL,
 } from 'drizzle-orm';
 import { DB } from '../db/db.module';
+import { loadJournalHealth } from './journal-health';
 
 export interface DailyPoint {
   day: string;
@@ -50,22 +54,21 @@ export interface DailyPoint {
 
 /** Условие на журнал лидов для метрики — то же правило, что в buildMetrics. */
 export function metricCondition(metric: LeadMetric): SQL | undefined {
-  const fresh = eq(leads.isRepeat, false);
   switch (metric) {
     case 'adLeads':
-      return and(fresh, eq(leads.channel, 'ad'));
+      return eq(leads.channel, 'ad');
     case 'organicLeads':
-      return and(fresh, eq(leads.channel, 'organic'));
+      return eq(leads.channel, 'organic');
     case 'directUnknownLeads':
-      return and(fresh, eq(leads.channel, 'direct_unknown'));
+      return eq(leads.channel, 'direct_unknown');
     case 'otherLeads':
-      return and(fresh, eq(leads.channel, 'other'));
+      return eq(leads.channel, 'other');
     case 'totalLeads':
-      return fresh;
+      return undefined;
     case 'repeats':
       return eq(leads.isRepeat, true);
     case 'withPhone':
-      return and(fresh, isNotNull(leads.phone));
+      return isNotNull(leads.phone);
     case 'sales':
       return eq(leads.status, 'won');
   }
@@ -177,6 +180,10 @@ export class MetricsRepository {
     return after ? { rate: Number(after.rate), source: after.source, day: after.day } : null;
   }
 
+  journal(workspaceId: string) {
+    return loadJournalHealth(this.db, workspaceId);
+  }
+
   sources(workspaceId: string) {
     return this.db
       .select({
@@ -197,7 +204,6 @@ export class MetricsRepository {
       between(leads.day, q.from, q.to),
     ];
     if (q.metric) conds.push(metricCondition(q.metric));
-    else if (q.includeRepeats !== 'yes') conds.push(eq(leads.isRepeat, false));
     if (q.channel) conds.push(eq(leads.channel, q.channel));
     if (q.status) conds.push(eq(leads.status, q.status));
     if (q.flag) conds.push(sql`${q.flag} = any(${leads.flags})`);
@@ -255,7 +261,30 @@ export class MetricsRepository {
       .from(leadOverrides)
       .where(and(eq(leadOverrides.workspaceId, workspaceId), eq(leadOverrides.leadId, id)))
       .orderBy(desc(leadOverrides.createdAt));
-    return { item: toItem(row.lead, row.stageName), overrides: history };
+    return {
+      item: toItem(row.lead, row.stageName),
+      overrides: history,
+      contacts: await this.contactsOf(workspaceId, row.lead.repeatOf ?? row.lead.id),
+    };
+  }
+
+  /** Обращения клиента: первое (`first`) и все строки, помеченные его повтором. */
+  private async contactsOf(workspaceId: string, first: string) {
+    const rows = await this.db
+      .select({
+        id: leads.id,
+        createdAt: leads.createdAt,
+        channel: leads.channel,
+        adName: leads.adName,
+        status: leads.status,
+        isRepeat: leads.isRepeat,
+      })
+      .from(leads)
+      .where(
+        and(eq(leads.workspaceId, workspaceId), or(eq(leads.id, first), eq(leads.repeatOf, first))),
+      )
+      .orderBy(asc(leads.createdAt), asc(leads.id));
+    return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
   }
 
   async addOverride(input: typeof leadOverrides.$inferInsert): Promise<void> {
@@ -345,6 +374,37 @@ export class MetricsRepository {
   }
 
   /** Источники сделок Bitrix24 с названиями (из последнего ответа crm.status.list) и числом сделок. */
+  /** Воронки Bitrix24 (по стадиям) и сколько в них сделок за 30 дней. */
+  async bitrixCategories(workspaceId: string) {
+    const since = new Date(Date.now() - 30 * 86_400_000);
+    const [cats, counts] = await Promise.all([
+      this.db
+        .select({
+          id: b24Stages.categoryId,
+          name: sql<string | null>`max(${b24Stages.categoryName})`,
+        })
+        .from(b24Stages)
+        .where(eq(b24Stages.workspaceId, workspaceId))
+        .groupBy(b24Stages.categoryId),
+      this.db
+        .select({
+          id: sql<number>`coalesce(${b24Deals.categoryId}, 0)::int`,
+          deals: sql<number>`count(*)::int`,
+        })
+        .from(b24Deals)
+        .where(and(eq(b24Deals.workspaceId, workspaceId), gte(b24Deals.createdAt, since)))
+        .groupBy(sql`1`),
+    ]);
+    const deals = new Map(counts.map((c) => [c.id, c.deals]));
+    return cats
+      .map((c) => ({
+        id: c.id,
+        name: c.name ?? (c.id === 0 ? 'Основная воронка' : `Воронка ${c.id}`),
+        deals30d: deals.get(c.id) ?? 0,
+      }))
+      .sort((a, b) => a.id - b.id);
+  }
+
   async bitrixSources(workspaceId: string) {
     const [raw] = await this.db
       .select({ response: rawPayloads.response })
@@ -393,6 +453,9 @@ export function preliminaryFrom(from: string, to: string, timezone: string): str
   return from > start ? from : start;
 }
 
+const KNOWN_FLAGS = new Set<string>(LEAD_FLAGS);
+const isLeadFlag = (f: string): f is LeadFlag => KNOWN_FLAGS.has(f);
+
 function toItem(l: typeof leads.$inferSelect, stageName: string | null): LeadItem {
   return {
     id: l.id,
@@ -416,6 +479,7 @@ function toItem(l: typeof leads.$inferSelect, stageName: string | null): LeadIte
     currency: l.currency,
     isRepeat: l.isRepeat,
     repeatOf: l.repeatOf,
-    flags: l.flags as LeadItem['flags'],
+    // Флаг, которого больше нет в правилах (старая строка до пересборки), — не отдаём.
+    flags: l.flags.filter(isLeadFlag),
   };
 }

@@ -64,7 +64,6 @@ export class InsightsRepository {
         and(
           eq(leads.workspaceId, workspaceId),
           between(leads.day, from, to),
-          eq(leads.isRepeat, false),
           channel ? eq(leads.channel, channel) : undefined,
         ),
       )
@@ -126,12 +125,24 @@ export class InsightsRepository {
           lt(wardConversations.createdAt, end),
         ),
       );
-    const [l] = await this.db
+    // Лиды Ward без сделки в журнал не попадают (лид = сделка), поэтому начало воронки — из Ward.
+    const [w] = await this.db
       .select({
         all: sql<number>`count(*)::int`,
-        phone: sql<number>`count(${leads.phone})::int`,
-        deal: sql<number>`count(${leads.dealId})::int`,
-        inWork: sql<number>`count(*) filter (where ${leads.dealId} is not null and ${leads.status} = 'in_work')::int`,
+        phone: sql<number>`count(nullif(trim(${wardLeads.phone}), ''))::int`,
+      })
+      .from(wardLeads)
+      .where(
+        and(
+          eq(wardLeads.workspaceId, workspaceId),
+          gte(wardLeads.createdAt, start),
+          lt(wardLeads.createdAt, end),
+        ),
+      );
+    const [l] = await this.db
+      .select({
+        deal: sql<number>`count(*)::int`,
+        inWork: sql<number>`count(*) filter (where ${leads.status} = 'in_work')::int`,
         won: sql<number>`count(*) filter (where ${leads.status} = 'won')::int`,
       })
       .from(leads)
@@ -144,8 +155,8 @@ export class InsightsRepository {
       );
     return {
       conversations: conv?.n ?? 0,
-      wardLeads: l?.all ?? 0,
-      withPhone: l?.phone ?? 0,
+      wardLeads: w?.all ?? 0,
+      withPhone: w?.phone ?? 0,
       withDeal: l?.deal ?? 0,
       inWork: l?.inWork ?? 0,
       sales: l?.won ?? 0,

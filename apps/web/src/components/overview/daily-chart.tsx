@@ -49,7 +49,7 @@ export function DailyChart({
     <Card>
       <CardHeader>
         <CardTitle>Лиды по дням</CardTitle>
-        <CardDescription>Новые лиды по каналам; повторные обращения не входят</CardDescription>
+        <CardDescription>Лиды (сделки) по каналам, включая повторные обращения</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {q.isPending ? (

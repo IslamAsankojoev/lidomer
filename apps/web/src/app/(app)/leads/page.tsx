@@ -46,7 +46,7 @@ const METRIC_LABELS: Record<(typeof LEAD_METRICS)[number], string> = {
   organicLeads: 'Органика',
   directUnknownLeads: 'Direct, источник не определён',
   otherLeads: 'Другие каналы',
-  totalLeads: 'Все новые лиды',
+  totalLeads: 'Все лиды',
   repeats: 'Повторные обращения',
   withPhone: 'С телефоном',
   sales: 'Продажи',
@@ -282,11 +282,7 @@ export default function LeadsPage() {
                   {l.flags.length > 0 && (
                     <div className="flex flex-wrap gap-1 pt-0.5">
                       {l.flags.map((fl) => (
-                        <Badge
-                          key={fl}
-                          variant={fl === 'no_deal' ? 'destructive' : 'secondary'}
-                          className="text-[11px]"
-                        >
+                        <Badge key={fl} variant="secondary" className="text-[11px]">
                           {LEAD_FLAG_LABELS[fl]}
                         </Badge>
                       ))}
@@ -370,11 +366,7 @@ export default function LeadsPage() {
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {l.flags.map((fl) => (
-                          <Badge
-                            key={fl}
-                            variant={fl === 'no_deal' ? 'destructive' : 'secondary'}
-                            className="text-[11px]"
-                          >
+                          <Badge key={fl} variant="secondary" className="text-[11px]">
                             {LEAD_FLAG_LABELS[fl]}
                           </Badge>
                         ))}
@@ -410,7 +402,7 @@ export default function LeadsPage() {
           </div>
         </>
       )}
-      <LeadDialog id={openId} onClose={() => setOpenId(null)} />
+      <LeadDialog id={openId} onClose={() => setOpenId(null)} onOpenLead={setOpenId} />
     </>
   );
 }

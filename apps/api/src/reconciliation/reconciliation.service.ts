@@ -17,7 +17,7 @@ import {
   workspaces,
 } from '@lidomer/db';
 import { countingSettingsSchema, type DealStatus, defaultDealStatus } from '@lidomer/shared';
-import { and, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { DB } from '../db/db.module';
 import { buildMetrics } from './build-metrics';
 import { type ReconcileContext, refreshLeads, type SourceChanges } from './incremental';
@@ -297,6 +297,48 @@ export class ReconciliationService {
       dealIds: [...new Set([...deals, ...contactDeals].map((d) => d.id))],
       insightDays: days.map((d) => d.day),
     };
+  }
+
+  /**
+   * Записать сбой пересборки. true — это переход в ошибку (прошлая пересборка удалась): нужен алерт.
+   * Строки состояния ещё нет — создаём с нулевым временем: следующая пересборка будет полной.
+   */
+  async markFailed(workspaceId: string, error: string): Promise<boolean> {
+    const now = await this.dbNow();
+    const [prev] = await this.db
+      .select({ failedAt: reconcileState.failedAt })
+      .from(reconcileState)
+      .where(eq(reconcileState.workspaceId, workspaceId));
+    if (!prev) {
+      const never = new Date(0);
+      await this.db
+        .insert(reconcileState)
+        .values({
+          workspaceId,
+          seenAt: never,
+          fullAt: never,
+          metaConnected: false,
+          failedAt: now,
+          error,
+        })
+        .onConflictDoUpdate({ target: reconcileState.workspaceId, set: { error } });
+      return true;
+    }
+    await this.db
+      .update(reconcileState)
+      .set(prev.failedAt ? { error } : { failedAt: now, error })
+      .where(eq(reconcileState.workspaceId, workspaceId));
+    return !prev.failedAt;
+  }
+
+  /** Пересборка удалась после сбоя: снять отметку. true — сбой был (сообщить о восстановлении). */
+  async clearFailure(workspaceId: string): Promise<boolean> {
+    const rows = await this.db
+      .update(reconcileState)
+      .set({ failedAt: null, error: null })
+      .where(and(eq(reconcileState.workspaceId, workspaceId), isNotNull(reconcileState.failedAt)))
+      .returning({ workspaceId: reconcileState.workspaceId });
+    return rows.length > 0;
   }
 
   private async saveState(

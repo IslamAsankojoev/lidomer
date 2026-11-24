@@ -40,6 +40,8 @@ export interface DealIn {
   utmCampaign: string | null;
   utmContent: string | null;
   contactId: string | null;
+  /** Воронка Bitrix24; null или нет — основная (0). */
+  categoryId?: number | null;
   /** Телефон и имя из пользовательских полей сделки (лид-формы без контакта). */
   phone?: string | null;
   clientName?: string | null;
@@ -139,36 +141,40 @@ const WARD_CHANNEL: Record<WardLeadIn['sourceKind'], LeadChannel> = {
   unknown: 'other',
 };
 
-/** Статус Ward, когда сделки нет: new/in_work → в работе. */
-function wardStatus(s: string | null): DealStatus {
-  return s === 'won' ? 'won' : s === 'lost' ? 'lost' : 'in_work';
-}
-
 const utmKey = (d: DealIn) =>
   [d.utmCampaign, d.utmMedium, d.utmContent].map((v) => v ?? '—').join(' › ');
 
 /**
- * Сверка: лид Ward + его сделка → одна строка; сделки без лида Ward — отдельные строки.
+ * Сверка: лид = сделка Bitrix24, одна сделка — одна строка журнала. Сделка с лидом Ward → строка
+ * с данными обоих (несколько лидов Ward на одну сделку — берём самый ранний); сделки без лида Ward —
+ * отдельные строки. Лид Ward без сделки (клиент не оставил номер — Ward не передал его в CRM) лидом
+ * не считается и в журнал не попадает; он виден только в воронке Ward → Bitrix24.
  * Источники не меняются; ручные решения — только через overrides.
  */
 export function reconcile(input: ReconcileInput): LeadRow[] {
   const meta = input.metaAds ? metaAdIndex(input.metaAds) : null;
   const { timezone, settings } = input;
-  const dealsById = new Map(input.deals.map((d) => [d.id, d]));
+  // Сделка из исключённой воронки (например, «Аренда») — не лид: ни сама, ни через лид Ward.
+  const excludedCategories = new Set(settings.excludedCategoryIds);
+  const deals = input.deals.filter((d) => !excludedCategories.has(d.categoryId ?? 0));
+  const dealsById = new Map(deals.map((d) => [d.id, d]));
   const dealStatus = (d: DealIn) =>
     (d.stageId && input.stageStatus.get(d.stageId)) || defaultDealStatus(null);
   const rows: LeadRow[] = [];
   const linkedDeals = new Set<string>();
 
-  for (const w of input.wardLeads) {
+  const wardByTime = [...input.wardLeads].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id,
+  );
+  for (const w of wardByTime) {
     const deal = w.crmEntity === 'deal' && w.crmId ? dealsById.get(w.crmId) : undefined;
-    if (deal) linkedDeals.add(deal.id);
-    const contact = deal?.contactId ? input.contacts.get(deal.contactId) : undefined;
+    if (!deal || linkedDeals.has(deal.id)) continue;
+    linkedDeals.add(deal.id);
+    const contact = deal.contactId ? input.contacts.get(deal.contactId) : undefined;
     const channel = WARD_CHANNEL[w.sourceKind];
-    const status = deal ? dealStatus(deal) : wardStatus(w.status);
-    const phone = normalizePhone(w.phone) ?? contact?.phone ?? deal?.phone ?? null;
+    const status = dealStatus(deal);
+    const phone = normalizePhone(w.phone) ?? contact?.phone ?? deal.phone ?? null;
     const flags: LeadFlag[] = [];
-    if (!deal) flags.push('no_deal');
     if (!phone) flags.push('no_phone');
     if (w.sourceKind === 'unknown') flags.push('source_unparsed');
     const metaAd = w.sourceAdId ? meta?.byId.get(w.sourceAdId) : undefined;
@@ -192,11 +198,11 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
       adsetName: channel === 'ad' ? (metaAd?.adsetName ?? null) : null,
       postId: w.sourcePostId,
       wardLeadId: w.id,
-      dealId: deal?.id ?? null,
-      dealSourceId: deal?.sourceId ?? null,
+      dealId: deal.id,
+      dealSourceId: deal.sourceId,
       status,
-      amountMinor: status === 'won' ? (deal?.amountMinor ?? null) : null,
-      currency: deal?.currency ?? null,
+      amountMinor: status === 'won' ? deal.amountMinor : null,
+      currency: deal.currency,
       isRepeat: false,
       repeatOf: null,
       flags,
@@ -206,7 +212,7 @@ export function reconcile(input: ReconcileInput): LeadRow[] {
 
   const excluded = new Set(settings.excludedSourceIds);
   const adSources = new Set(settings.adSourceIds);
-  for (const d of input.deals) {
+  for (const d of deals) {
     if (linkedDeals.has(d.id) || !d.createdAt) continue;
     if (d.sourceId && excluded.has(d.sourceId)) continue;
     const contact = d.contactId ? input.contacts.get(d.contactId) : undefined;
@@ -317,8 +323,8 @@ export const byTime = (a: RepeatRow, b: RepeatRow) =>
   a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id);
 
 /**
- * Повторное обращение: тот же Instagram или телефон в окне N дней от первого обращения.
- * После окна — снова новый лид. `firstBy` — состояние на начало `rows`, если это хвост журнала
+ * Пометка «повтор»: тот же Instagram или телефон в окне N дней от первого обращения. Только подсказка:
+ * повтор — тоже лид (лид = сделка). После окна — снова первое обращение. `firstBy` — состояние на начало `rows`, если это хвост журнала
  * (частичная пересборка, решение 0013); по умолчанию — пустое (весь журнал).
  */
 export function markRepeats(

@@ -12,7 +12,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { Public } from '../auth/decorators';
 import { ENV, type Env } from '../config/env';
 import { JobRunner, type TickReport } from './job-runner';
-import { Watchdog, type WatchdogVerdict } from './watchdog';
+import { type SchemaCheck, Watchdog, type WatchdogVerdict } from './watchdog';
 
 /** Бюджет одного вызова: с запасом до лимита функции Vercel. */
 const TICK_BUDGET_MS = 55_000;
@@ -42,16 +42,22 @@ export class JobsController {
 
   /**
    * Сторож расписания: вызывается извне (GitHub Actions) раз в 10 минут.
-   * Пульс `tick` старше 10 минут — алерт в Telegram; ответ 503, чтобы упал и сам вызов.
+   * Пульс `tick` старше 10 минут или база отстала от миграций кода — алерт в Telegram;
+   * ответ 503, чтобы упал и сам вызов.
    */
   @Public()
   @Get('watchdog')
   async watchdogCheck(
     @Headers('authorization') auth?: string,
-  ): Promise<{ verdict: WatchdogVerdict; lastTickAt: string | null }> {
+  ): Promise<{ verdict: WatchdogVerdict; lastTickAt: string | null; schema: SchemaCheck }> {
     this.authorize(auth);
-    const result = await this.watchdog.check();
-    if (result.verdict === 'stale' || result.verdict === 'still_stale')
+    const result = { ...(await this.watchdog.check()), schema: await this.watchdog.checkSchema() };
+    if (
+      result.verdict === 'stale' ||
+      result.verdict === 'still_stale' ||
+      result.schema.verdict === 'behind' ||
+      result.schema.verdict === 'still_behind'
+    )
       throw new ServiceUnavailableException(result);
     return result;
   }

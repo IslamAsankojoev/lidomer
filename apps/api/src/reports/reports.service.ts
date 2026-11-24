@@ -34,6 +34,7 @@ import { PREVIEWS_BUCKET, Storage } from '../common/storage';
 import { ENV, type Env } from '../config/env';
 import { DB } from '../db/db.module';
 import { InsightsRepository } from '../reconciliation/insights.repository';
+import { type JournalHealth, loadJournalHealth } from '../reconciliation/journal-health';
 import { MetricsRepository } from '../reconciliation/metrics.repository';
 import { MembershipRepository } from '../workspaces/membership.repository';
 import { buildCaption } from './caption';
@@ -56,6 +57,20 @@ type ProcessResult = 'done' | 'wait';
 
 const hhmm = (d: Date, tz: string) =>
   new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: tz }).format(d);
+
+/** «00:44» сегодня, «23 ноября, 00:44» — в другой день (по поясу компании). */
+const dayTime = (d: Date, tz: string, now: Date) =>
+  toDayKey(d, tz) === toDayKey(now, tz)
+    ? hhmm(d, tz)
+    : `${new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', timeZone: tz }).format(d)}, ${hhmm(d, tz)}`;
+
+/** Пометка для подписи отчёта, если журнал лидов отстал от синхронизации. */
+export function journalNote(j: JournalHealth, tz: string, now: Date): string | null {
+  if (!j.stale) return null;
+  return j.updatedAt
+    ? `лиды и метрики пересчитаны на ${dayTime(j.updatedAt, tz, now)}`
+    : 'лиды и метрики ещё не пересчитаны';
+}
 
 @Injectable()
 export class ReportsService {
@@ -361,14 +376,14 @@ export class ReportsService {
         .where(eq(reportRuns.id, run.id));
       return 'wait';
     }
-    const dataNote = stale.length
-      ? stale
-          .map(
-            (s) =>
-              `данные ${INTEGRATION_LABELS[s.type]} ${s.lastSyncAt ? `на ${hhmm(s.lastSyncAt, ws.timezone)}` : 'не получены'}`,
-          )
-          .join(', ')
-      : null;
+    const notes = stale.map(
+      (s) =>
+        `данные ${INTEGRATION_LABELS[s.type]} ${s.lastSyncAt ? `на ${hhmm(s.lastSyncAt, ws.timezone)}` : 'не получены'}`,
+    );
+    // Источники свежие, а пересчёт журнала падает — цифры старые, об этом тоже пишем.
+    const journal = journalNote(await loadJournalHealth(this.db, ws.id), ws.timezone, now);
+    if (journal) notes.push(journal);
+    const dataNote = notes.length ? notes.join(', ') : null;
 
     const snapshot = await this.snapshot(
       ws,

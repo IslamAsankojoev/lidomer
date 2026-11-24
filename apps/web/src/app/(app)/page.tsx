@@ -13,7 +13,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Info, TrendingDown, TrendingUp } from 'lucide-react';
+import { TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
@@ -26,7 +26,7 @@ import { PeriodStrip } from '@/components/overview/period-strip';
 import { TopCreatives } from '@/components/overview/top-creatives';
 import { ChartSkeleton } from '@/components/skeletons';
 import { ErrorState, LoadingState } from '@/components/state';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { InfoHint } from '@/components/info-hint';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApi } from '@/lib/api';
@@ -38,6 +38,8 @@ import { SourceLogo } from '@/components/source-badge';
 
 interface Tile {
   label: string;
+  /** Подпись в узкой ячейке строки разбивки под главной цифрой. */
+  short?: string;
   hint: string;
   metric?: LeadMetric;
   value: (c: Counts) => number | null;
@@ -48,9 +50,17 @@ interface Tile {
 
 const TILES: Tile[] = [
   {
-    label: 'Лиды с рекламы · факт',
+    label: 'Всего лидов (сделок) за период',
     better: 'up',
-    hint: 'Лиды WARD с объявлением + сделки Bitrix24 с рекламными UTM или из рекламных источников. Повторы не входят.',
+    hint: 'Каждая сделка Bitrix24 в воронках, отмеченных в «Настройках», — один лид, повторные обращения тоже. Ниже — откуда они пришли.',
+    metric: 'totalLeads',
+    value: (c) => c.totalLeads,
+  },
+  {
+    label: 'Лиды с рекламы · факт',
+    short: 'Реклама',
+    better: 'up',
+    hint: 'Сделки Bitrix24 из рекламы: от лидов WARD с объявлением, с рекламными UTM или из рекламных источников.',
     metric: 'adLeads',
     value: (c) => c.adLeads,
   },
@@ -76,6 +86,7 @@ const TILES: Tile[] = [
   },
   {
     label: 'Direct, источник не определён',
+    short: 'Direct без источника',
     hint: 'WARD отдаёт Direct без пометки рекламы — пока не относим ни к рекламе, ни к органике.',
     metric: 'directUnknownLeads',
     value: (c) => c.directUnknownLeads,
@@ -89,7 +100,7 @@ const TILES: Tile[] = [
   {
     label: 'С телефоном',
     better: 'up',
-    hint: 'Новые лиды, у которых есть телефон.',
+    hint: 'Лиды, у которых есть телефон.',
     metric: 'withPhone',
     value: (c) => c.withPhone,
   },
@@ -102,7 +113,7 @@ const TILES: Tile[] = [
   },
   {
     label: 'Повторные обращения',
-    hint: 'Тот же Instagram или телефон в окне 30 дней.',
+    hint: 'Из всех лидов — те, где тот же Instagram или телефон уже обращался в окне из «Настроек». Входят в число лидов.',
     metric: 'repeats',
     value: (c) => c.repeats,
   },
@@ -164,22 +175,23 @@ function MetricTile({
 
 const byMetric = (m: LeadMetric) => TILES.find((t) => t.metric === m)!;
 /** Главная цифра (крупно) и строка под ней; остальное — компактной сеткой ниже. */
-const HERO = byMetric('adLeads');
+const HERO = byMetric('totalLeads');
+/** «С телефоном» — мелкой строкой под главной цифрой, не отдельной плиткой. */
+const PHONE = byMetric('withPhone');
 const STRIP = [
+  byMetric('adLeads'),
   byMetric('organicLeads'),
   byMetric('directUnknownLeads'),
   byMetric('otherLeads'),
-  byMetric('withPhone'),
 ];
-const REST = TILES.filter((t) => t !== HERO && !STRIP.includes(t));
+const REST = TILES.filter((t) => t !== HERO && t !== PHONE && !STRIP.includes(t));
 
-/** Карточка «как в WARD»: крупная цифра с бейджем изменения, под ней четыре метрики через разделители. */
+/** Карточка «как в WARD»: все лиды крупно с бейджем изменения, под ними — откуда они пришли. */
 function Hero({ current, before }: { current: Counts; before: Counts }) {
   const href = usePeriodHref();
   const value = HERO.value(current) ?? 0;
   const prev = HERO.value(before);
   const diff = prev === null ? null : value - prev;
-  const share = current.totalLeads ? Math.round((value / current.totalLeads) * 100) : null;
   return (
     <Card className="gap-0 py-0">
       <div className="flex flex-col gap-2 p-4 sm:p-5">
@@ -189,7 +201,7 @@ function Hero({ current, before }: { current: Counts; before: Counts }) {
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <Link
-            href={href('/leads', { metric: 'adLeads' })}
+            href={href('/leads', { metric: 'totalLeads' })}
             aria-label={`${HERO.label}: показать лидов`}
             className="flex items-baseline gap-2 rounded-md hover:underline"
           >
@@ -214,10 +226,13 @@ function Hero({ current, before }: { current: Counts; before: Counts }) {
             </span>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">
-          Всего новых лидов за период: {int(current.totalLeads)}
-          {share !== null && ` · ${share}% с рекламы`}
-        </p>
+        <Link
+          href={href('/leads', { metric: 'withPhone' })}
+          aria-label={`${PHONE.label}: показать лидов`}
+          className="w-fit rounded-md text-sm text-muted-foreground hover:underline"
+        >
+          {int(current.withPhone)} с телефоном
+        </Link>
       </div>
       <div className="grid grid-cols-2 border-t sm:grid-cols-4">
         {STRIP.map((t, i) => (
@@ -229,22 +244,7 @@ function Hero({ current, before }: { current: Counts; before: Counts }) {
 }
 
 function Hint({ t }: { t: Tile }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            type="button"
-            aria-label={`Как считается: ${t.label}`}
-            className="-m-1 shrink-0 p-1 text-muted-foreground hover:text-foreground"
-          >
-            <Info className="size-3.5" />
-          </button>
-        }
-      />
-      <TooltipContent className="max-w-72">{t.hint}</TooltipContent>
-    </Tooltip>
-  );
+  return <InfoHint label={t.label}>{t.hint}</InfoHint>;
 }
 
 function Delta({ t, current, before }: { t: Tile; current: Counts; before: Counts }) {
@@ -298,7 +298,7 @@ function StripStat({
       )}
     >
       <div className="flex items-center gap-1 text-xs text-muted-foreground">
-        <span className="truncate">{t.label}</span>
+        <span className="leading-tight">{t.short ?? t.label}</span>
         <Hint t={t} />
       </div>
       {value === null || !t.metric ? (
@@ -432,6 +432,13 @@ function DataState({ data }: { data: SummaryResponse }) {
         <CardTitle>Состояние данных</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm">
+        {data.journal.stale && (
+          <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
+            {data.journal.updatedAt
+              ? `Лиды и метрики последний раз пересчитаны ${formatDistanceToNow(parseISO(data.journal.updatedAt), { addSuffix: true, locale: ru })}: новые сделки сюда ещё не попали.`
+              : 'Лиды и метрики ещё не пересчитаны — цифры на экране неполные.'}
+          </p>
+        )}
         <ul className="grid gap-2 sm:grid-cols-3">
           {data.sources.map((s) => (
             <li key={s.type} className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">

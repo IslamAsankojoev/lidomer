@@ -134,6 +134,10 @@ export const reconcileState = pgTable('reconcile_state', {
   fullAt: timestamp('full_at', { withTimezone: true }).notNull(),
   /** Была ли подключена Meta при последней пересборке: сменилось — нужна полная. */
   metaConnected: boolean('meta_connected').notNull(),
+  /** С какого момента пересборка падает (алерт ушёл); null — последняя удалась. */
+  failedAt: timestamp('failed_at', { withTimezone: true }),
+  /** Текст последней ошибки пересборки — без токенов и данных клиентов. */
+  error: text('error'),
 }).enableRLS();
 
 /** Курс валюты к сому по дням (справочная таблица, без workspace_id). */

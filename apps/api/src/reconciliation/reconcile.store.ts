@@ -46,6 +46,7 @@ export const dealColumns = {
   utmCampaign: b24Deals.utmCampaign,
   utmContent: b24Deals.utmContent,
   contactId: b24Deals.contactId,
+  categoryId: b24Deals.categoryId,
   phone: b24Deals.phone,
   clientName: b24Deals.clientName,
 };

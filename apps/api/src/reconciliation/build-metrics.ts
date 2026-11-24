@@ -37,7 +37,8 @@ export interface MetricRow {
 }
 
 /**
- * Агрегаты по дню × каналу × объявлению. Лид считается один раз (повторы — отдельно),
+ * Агрегаты по дню × каналу × объявлению. Лид — каждая строка журнала (сделка), повторы тоже;
+ * `repeats` — сколько из них помечены повтором (справочно),
  * продажа — по любой строке со статусом «продажа». Расход и лиды Meta — только для рекламы.
  */
 export function buildMetrics(
@@ -70,11 +71,9 @@ export function buildMetrics(
 
   for (const l of leads) {
     const r = get(l.day, l.channel, l.channel === 'ad' ? (l.adKey ?? '') : '');
+    r.leads++;
     if (l.isRepeat) r.repeats++;
-    else {
-      r.leads++;
-      if (l.phone) r.withPhone++;
-    }
+    if (l.phone) r.withPhone++;
     if (l.status === 'won') {
       r.sales++;
       r.salesAmountMinor += l.amountMinor ?? 0;

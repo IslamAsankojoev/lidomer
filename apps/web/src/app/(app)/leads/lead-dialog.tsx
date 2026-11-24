@@ -94,8 +94,21 @@ function LeadSkeleton() {
   );
 }
 
-/** Карточка лида: хронология «объявление → Ward → сделка», анкета, ручная правка. */
-export function LeadDialog({ id, onClose }: { id: string | null; onClose: () => void }) {
+const when = (iso: string) => format(parseISO(iso), 'd MMM, HH:mm', { locale: ru });
+
+/**
+ * Карточка лида: обращения клиента (первое и повторы), хронология «объявление → Ward → сделка»,
+ * анкета, ручная правка. `onOpenLead` — открыть карточку другого обращения того же клиента.
+ */
+export function LeadDialog({
+  id,
+  onClose,
+  onOpenLead,
+}: {
+  id: string | null;
+  onClose: () => void;
+  onOpenLead: (id: string) => void;
+}) {
   const api = useApi();
   const { workspace } = useWorkspace();
   const qc = useQueryClient();
@@ -130,6 +143,8 @@ export function LeadDialog({ id, onClose }: { id: string | null; onClose: () => 
   });
 
   const l = q.data?.item;
+  const contacts = q.data?.contacts ?? [];
+  const first = contacts.find((c) => !c.isRepeat);
   return (
     <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}>
       {/* Высота постоянная: окно не прыгает, когда карточка догружается. */}
@@ -173,18 +188,53 @@ export function LeadDialog({ id, onClose }: { id: string | null; onClose: () => 
                 {l.isRepeat && (
                   <>
                     <dt className="text-muted-foreground">Повтор</dt>
-                    <dd>первое обращение — {l.repeatOf}</dd>
+                    <dd>
+                      {first ? `первое обращение ${when(first.createdAt)}` : 'первое обращение'}
+                    </dd>
                   </>
                 )}
               </dl>
               {l.flags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {l.flags.map((f) => (
-                    <Badge key={f} variant={f === 'no_deal' ? 'destructive' : 'secondary'}>
+                    <Badge key={f} variant="secondary">
                       {LEAD_FLAG_LABELS[f]}
                     </Badge>
                   ))}
                 </div>
+              )}
+
+              {contacts.length > 1 && (
+                <section>
+                  <h3 className="mb-2 text-sm font-medium">Обращения клиента: {contacts.length}</h3>
+                  <ol className="divide-y rounded-lg border text-sm">
+                    {contacts.map((c) => {
+                      const current = c.id === l.id;
+                      return (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            disabled={current}
+                            onClick={() => onOpenLead(c.id)}
+                            aria-current={current ? 'true' : undefined}
+                            className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left enabled:hover:bg-muted/50 disabled:bg-muted/40"
+                          >
+                            <span className="min-w-0">
+                              <span className="block tabular-nums">{when(c.createdAt)}</span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {LEAD_CHANNEL_LABELS[c.channel]}
+                                {c.adName && ` · ${c.adName}`} · {DEAL_STATUS_LABELS[c.status]}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {current ? 'этот лид' : c.isRepeat ? 'повтор' : 'первое'}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
               )}
 
               <section>

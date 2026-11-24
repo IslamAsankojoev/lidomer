@@ -92,12 +92,13 @@ export class MetricsController {
       ) + 1;
     const previous = { from: shiftDay(p.from, -len), to: shiftDay(p.from, -1) };
     const meta = await this.repo.metaConnected(ws.workspaceId);
-    const [current, before, fx, sources, tz] = await Promise.all([
+    const [current, before, fx, sources, tz, journal] = await Promise.all([
       this.repo.counts(ws.workspaceId, p.from, p.to, meta),
       this.repo.counts(ws.workspaceId, previous.from, previous.to, meta),
       this.repo.fx(p.to),
       this.repo.sources(ws.workspaceId),
       this.timezone(ws.workspaceId),
+      this.repo.journal(ws.workspaceId),
     ]);
     return {
       period: p,
@@ -106,6 +107,7 @@ export class MetricsController {
       before,
       fx,
       sources: sources.map((s) => ({ ...s, lastSyncAt: s.lastSyncAt?.toISOString() ?? null })),
+      journal: { updatedAt: journal.updatedAt?.toISOString() ?? null, stale: journal.stale },
       preliminaryFrom: preliminaryFrom(p.from, p.to, tz),
     };
   }
@@ -159,6 +161,7 @@ export class MetricsController {
       facts: (src.ward?.facts as Record<string, unknown> | null) ?? null,
       timeline: buildTimeline(item, src, overrides),
       overrides,
+      contacts: res.contacts,
     };
   }
 
@@ -269,13 +272,14 @@ export class MetricsController {
     return { items, spendCurrency: counts.spendCurrency };
   }
 
-  /** Правила подсчёта: окно дублей, какие источники Bitrix24 — реклама, какие не считать. */
+  /** Правила подсчёта: окно дублей, какие источники Bitrix24 — реклама, какие не считать, какие воронки — не лиды. */
   @Get('settings/counting')
   @RequirePermission('metrics:read')
   async counting(@CurrentWorkspace() ws: WorkspaceContext): Promise<CountingResponse> {
     return {
       settings: await this.countingOf(ws.workspaceId),
       bitrixSources: await this.repo.bitrixSources(ws.workspaceId),
+      bitrixCategories: await this.repo.bitrixCategories(ws.workspaceId),
     };
   }
 

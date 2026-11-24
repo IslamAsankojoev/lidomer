@@ -14,7 +14,6 @@ export const LEAD_CHANNEL_LABELS: Record<LeadChannel, string> = {
 
 /** Флаги проблем лида. */
 export const LEAD_FLAGS = [
-  'no_deal',
   'no_phone',
   'ad_label_without_lead',
   'ad_not_connected',
@@ -24,7 +23,6 @@ export const leadFlagSchema = z.enum(LEAD_FLAGS);
 export type LeadFlag = z.infer<typeof leadFlagSchema>;
 
 export const LEAD_FLAG_LABELS: Record<LeadFlag, string> = {
-  no_deal: 'Лид не дошёл до Bitrix24',
   no_phone: 'Без телефона',
   ad_label_without_lead: 'Сделка с рекламной меткой без лида WARD',
   ad_not_connected: 'Объявление из неподключённого кабинета',
@@ -71,12 +69,17 @@ export function maskPhone(phone: string | null): string | null {
 
 /** Правила подсчёта компании (Настройки). */
 export const countingSettingsSchema = z.object({
-  /** Окно повторного обращения, дней. */
+  /** Окно пометки «повтор», дней. Повтор — тоже лид, пометка справочная. */
   duplicateWindowDays: z.number().int().min(0).max(365).default(30),
   /** SOURCE_ID Bitrix24, которые считаются рекламой даже без UTM. */
   adSourceIds: z.array(z.string()).default([]),
   /** SOURCE_ID Bitrix24, сделки которых не считаются лидами (например, импорт старой базы). */
   excludedSourceIds: z.array(z.string()).default([]),
+  /**
+   * Воронки (направления) Bitrix24, сделки которых не лиды — например, «Аренда». 0 — основная.
+   * Новая воронка по умолчанию считается.
+   */
+  excludedCategoryIds: z.array(z.number().int().min(0)).default([]),
   /** Главная цифра лидов: факт (CRM) или по данным Meta. */
   headline: z.enum(['fact', 'meta']).default('fact'),
 });
