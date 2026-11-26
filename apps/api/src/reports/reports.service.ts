@@ -22,7 +22,9 @@ import {
   type ReportTargetsResponse,
   type ReportPreviewResponse,
   type ReportSnapshot,
+  REPORT_PERIOD_SHORT,
   reportPageCount,
+  TOP_CREATIVES,
   shiftDay,
   slotUtc,
   toDayKey,
@@ -524,18 +526,17 @@ export class ReportsService {
       this.metrics.counts(ws.id, period.from, period.to, meta),
       this.metrics.counts(ws.id, prev.from, prev.to, meta),
       this.metrics.fx(period.to),
-      // Креативы решает формат: PDF — все за период, PNG — без них.
-      config.format === 'pdf'
-        ? this.metrics.creatives(ws.id, period.from, period.to, meta)
-        : Promise.resolve([]),
+      // Первая страница — топ креативов, как на «Обзоре»; в PDF дальше — все креативы за период.
+      this.metrics.creatives(ws.id, period.from, period.to, meta),
       config.blocks.includes('funnel')
         ? this.insights.funnel(ws.id, period.from, period.to)
         : Promise.resolve(null),
       marketerId ? this.membership.memberEmail(ws.id, marketerId) : Promise.resolve(null),
     ]);
-    const list = creatives
+    const sorted = creatives
       .filter((c) => c.leads > 0 || (c.spendMinor ?? 0) > 0)
       .sort((a, b) => b.leads - a.leads || (b.spendMinor ?? 0) - (a.spendMinor ?? 0));
+    const list = config.format === 'pdf' ? sorted : sorted.slice(0, TOP_CREATIVES);
     const signed = await this.storage
       .signedUrls(
         PREVIEWS_BUCKET,
@@ -547,6 +548,9 @@ export class ReportsService {
       workspaceName: ws.name,
       reportName: report.name,
       period,
+      periodLabel: REPORT_PERIOD_SHORT[config.period],
+      format: config.format,
+      compare: config.compare,
       generatedAt: new Date().toISOString(),
       timezone: ws.timezone,
       blocks: config.blocks,

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { reportPageCount, reportSnapshotSchema } from '@lidomer/shared';
+import { reportFilePages, reportSnapshotSchema } from '@lidomer/shared';
 import { ImageResponse } from 'next/og';
 import { REPORT_IMAGE_SIZE, ReportCreativesPage, ReportImage } from '@/components/report-image';
 import { env } from '@/lib/env';
@@ -45,7 +45,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ runId: string }
   // Страница файла: 1 — главные цифры, 2… — креативы (PDF).
   const raw = url.searchParams.get('page') ?? '1';
   const page = /^\d+$/.test(raw) ? Number(raw) : NaN;
-  if (!(page >= 1 && page <= reportPageCount(s.creatives.length)))
+  if (!(page >= 1 && page <= reportFilePages(s)))
     return new Response('Нет такой страницы', { status: 404 });
   const el = page === 1 ? <ReportImage s={s} /> : <ReportCreativesPage s={s} page={page} />;
   return new ImageResponse(el, {

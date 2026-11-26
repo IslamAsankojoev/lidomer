@@ -239,8 +239,8 @@ export function ReportBuilder({
                 </ToggleGroup>
                 <span className="text-xs text-muted-foreground">
                   {v.config.format === 'pdf'
-                    ? 'Файл: первая страница — главные цифры, дальше все креативы с превью, лидами и расходом.'
-                    : 'Картинка прямо в чате: главные цифры. Креативы — только в PDF.'}
+                    ? 'Файл: первая страница — как «Обзор», дальше все креативы с превью, лидами и расходом.'
+                    : 'Картинка прямо в чате — как «Обзор»: цифры, воронка и 5 лучших креативов. Все креативы — в PDF.'}
                 </span>
               </div>
               <fieldset className="flex flex-col gap-1 text-sm">
@@ -264,6 +264,20 @@ export function ReportBuilder({
                     {REPORT_BLOCK_LABELS[b]}
                   </label>
                 ))}
+                <label className="mt-1 flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={v.config.compare}
+                    onChange={(e) => set({ config: { ...v.config, compare: e.target.checked } })}
+                  />
+                  <span>
+                    Сравнение с прошлым периодом
+                    <span className="block text-xs text-muted-foreground">
+                      «↑ +50% к прошлому», «на 26 больше, чем в прошлый период»
+                    </span>
+                  </span>
+                </label>
               </fieldset>
             </div>
           )}
@@ -422,7 +436,10 @@ export function ReportBuilder({
                 <dt className="text-muted-foreground">Период</dt>
                 <dd>{REPORT_PERIOD_LABELS[v.config.period]}</dd>
                 <dt className="text-muted-foreground">Блоки</dt>
-                <dd>{v.config.blocks.map((b) => REPORT_BLOCK_LABELS[b]).join(', ')}</dd>
+                <dd>
+                  {v.config.blocks.map((b) => REPORT_BLOCK_LABELS[b]).join(', ')}
+                  {v.config.compare ? ', сравнение с прошлым периодом' : ''}
+                </dd>
                 <dt className="text-muted-foreground">Когда</dt>
                 <dd>
                   {scheduleText({

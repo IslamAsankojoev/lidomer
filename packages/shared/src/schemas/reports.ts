@@ -3,6 +3,7 @@ import { integrationStatusSchema } from '../integrations';
 import {
   deliveryChannelSchema,
   reportConfigSchema,
+  reportFormatSchema,
   reportScheduleSchema,
   reportTemplateSchema,
 } from '../reports';
@@ -97,6 +98,12 @@ export const reportSnapshotSchema = z.object({
   workspaceName: z.string(),
   reportName: z.string(),
   period: z.object({ from: z.string(), to: z.string() }),
+  /** «Вчера», «30 дней»… — в шапке, как вкладка периода. Старые снимки поля не имеют. */
+  periodLabel: z.string().nullable().default(null),
+  /** Формат файла: у картинки креативы — только топ на первой странице. Старые снимки — PDF. */
+  format: reportFormatSchema.default('pdf'),
+  /** Показывать изменения к прошлому периоду. Старые снимки — показывали. */
+  compare: z.boolean().default(true),
   generatedAt: z.string(),
   timezone: z.string(),
   blocks: z.array(z.string()),
