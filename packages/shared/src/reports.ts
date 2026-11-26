@@ -22,6 +22,16 @@ export const REPORT_PERIOD_LABELS: Record<ReportPeriod, string> = {
   last30: 'Последние 30 дней',
 };
 
+/** Период в шапке картинки отчёта — как вкладка периода на «Обзоре». */
+export const REPORT_PERIOD_SHORT: Record<ReportPeriod, string> = {
+  today: 'Сегодня',
+  yesterday: 'Вчера',
+  prev_week: 'Прошлая неделя',
+  prev_month: 'Прошлый месяц',
+  last7: '7 дней',
+  last30: '30 дней',
+};
+
 export const REPORT_BLOCKS = ['kpis', 'channels', 'creatives', 'funnel'] as const;
 export const reportBlockSchema = z.enum(REPORT_BLOCKS);
 export type ReportBlock = z.infer<typeof reportBlockSchema>;
@@ -33,16 +43,22 @@ export const REPORT_BLOCK_LABELS: Record<ReportBlock, string> = {
 };
 /**
  * Блоки, которые выбирают в конструкторе. `creatives` остался в enum только ради сохранённых
- * отчётов: креативы теперь решает формат (PDF — все креативы, PNG — без них).
+ * отчётов: креативы решает формат — топ на первой странице всегда, полный список — в PDF.
  */
 export const REPORT_EDITABLE_BLOCKS = REPORT_BLOCKS.filter(
   (b): b is Exclude<ReportBlock, 'creatives'> => b !== 'creatives',
 );
 
-export const CREATIVES_PER_PAGE = 8;
-/** Страниц в файле отчёта: первая — главные цифры, дальше креативы. */
+export const CREATIVES_PER_PAGE = 12;
+/** Лучших креативов на первой странице (как «Лучшие креативы» на «Обзоре»). */
+export const TOP_CREATIVES = 5;
+/** Страниц в PDF отчёта: первая — главные цифры, дальше все креативы. */
 export function reportPageCount(creatives: number): number {
   return 1 + Math.ceil(creatives / CREATIVES_PER_PAGE);
+}
+/** Страниц в файле: у картинки — одна, у PDF — ещё страницы креативов. */
+export function reportFilePages(s: { format: 'png' | 'pdf'; creatives: unknown[] }): number {
+  return s.format === 'pdf' ? reportPageCount(s.creatives.length) : 1;
 }
 /** Креативы страницы `page` (с 2-й). */
 export function creativesOnPage<T>(list: T[], page: number): T[] {
@@ -73,6 +89,8 @@ export const reportConfigSchema = z.object({
   blocks: z.array(reportBlockSchema).min(1),
   // У отчётов, сохранённых до появления формата, поля нет — это картинка.
   format: reportFormatSchema.default('png'),
+  /** Изменения к прошлому периоду той же длины («↑ +50% к прошлому»). У старых отчётов — включены. */
+  compare: z.boolean().default(true),
 });
 export type ReportConfig = z.infer<typeof reportConfigSchema>;
 
@@ -96,27 +114,37 @@ export const TEMPLATE_DEFAULTS: Record<
 > = {
   day_summary: {
     name: 'Итоги дня',
-    config: { format: 'png', period: 'yesterday', blocks: ['kpis', 'channels'] },
+    config: { format: 'png', period: 'yesterday', blocks: ['kpis', 'channels'], compare: true },
     schedule: { times: ['09:00'], weekdays: [], monthDays: [] },
   },
   day_pulse: {
     name: 'Пульс дня',
-    config: { format: 'png', period: 'today', blocks: ['kpis', 'channels'] },
+    config: { format: 'png', period: 'today', blocks: ['kpis', 'channels'], compare: true },
     schedule: { times: ['13:00', '18:00'], weekdays: [], monthDays: [] },
   },
   week: {
     name: 'Неделя',
-    config: { format: 'pdf', period: 'prev_week', blocks: ['kpis', 'channels', 'funnel'] },
+    config: {
+      format: 'pdf',
+      period: 'prev_week',
+      blocks: ['kpis', 'channels', 'funnel'],
+      compare: true,
+    },
     schedule: { times: ['10:00'], weekdays: [1], monthDays: [] },
   },
   month: {
     name: 'Месяц',
-    config: { format: 'pdf', period: 'prev_month', blocks: ['kpis', 'channels', 'funnel'] },
+    config: {
+      format: 'pdf',
+      period: 'prev_month',
+      blocks: ['kpis', 'channels', 'funnel'],
+      compare: true,
+    },
     schedule: { times: ['10:00'], weekdays: [], monthDays: [1] },
   },
   custom: {
     name: 'Свой отчёт',
-    config: { format: 'png', period: 'yesterday', blocks: ['kpis'] },
+    config: { format: 'png', period: 'yesterday', blocks: ['kpis'], compare: true },
     schedule: { times: ['09:00'], weekdays: [], monthDays: [] },
   },
 };

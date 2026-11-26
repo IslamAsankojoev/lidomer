@@ -3,7 +3,7 @@
 import {
   type ReportConfig,
   REPORT_FORMAT_LABELS,
-  reportPageCount,
+  reportFilePages,
   reportPreviewResponseSchema,
 } from '@lidomer/shared';
 import { useQuery } from '@tanstack/react-query';
@@ -77,7 +77,7 @@ export function ReportPreview({ name, config }: { name: string; config: ReportCo
     );
   if (q.isError) return <ErrorState message={q.error.message} onRetry={() => void q.refetch()} />;
   const { snapshot, caption } = q.data;
-  const pages = reportPageCount(snapshot.creatives.length);
+  const pages = reportFilePages(snapshot);
   const period =
     snapshot.period.from === snapshot.period.to
       ? snapshot.period.from

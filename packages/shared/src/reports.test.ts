@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { creativesOnPage, dueSlot, reportPageCount, reportPeriodRange, slotUtc } from './reports';
+import {
+  creativesOnPage,
+  dueSlot,
+  reportFilePages,
+  reportConfigSchema,
+  reportPageCount,
+  reportPeriodRange,
+  slotUtc,
+} from './reports';
 
 const TZ = 'Asia/Bishkek';
 
@@ -74,11 +82,22 @@ describe('период отчёта', () => {
 
 describe('страницы файла отчёта', () => {
   it('первая — цифры, дальше по 8 креативов', () => {
-    expect([0, 1, 8, 9].map(reportPageCount)).toEqual([1, 2, 2, 3]);
+    expect([0, 1, 12, 13].map(reportPageCount)).toEqual([1, 2, 2, 3]);
   });
   it('креативы страниц 2 и 3', () => {
-    const list = Array.from({ length: 11 }, (_, i) => i);
-    expect(creativesOnPage(list, 2)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
-    expect(creativesOnPage(list, 3)).toEqual([8, 9, 10]);
+    const list = Array.from({ length: 15 }, (_, i) => i);
+    expect(creativesOnPage(list, 2)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(creativesOnPage(list, 3)).toEqual([12, 13, 14]);
+  });
+  it('сравнение с прошлым периодом: у сохранённых раньше отчётов — включено', () => {
+    const old = reportConfigSchema.parse({ period: 'yesterday', blocks: ['kpis'] });
+    expect(old).toMatchObject({ format: 'png', compare: true });
+    const off = reportConfigSchema.parse({ period: 'yesterday', blocks: ['kpis'], compare: false });
+    expect(off.compare).toBe(false);
+  });
+  it('у картинки одна страница, даже с топом креативов; у PDF — ещё страницы креативов', () => {
+    const top = [1, 2, 3, 4, 5];
+    expect(reportFilePages({ format: 'png', creatives: top })).toBe(1);
+    expect(reportFilePages({ format: 'pdf', creatives: top })).toBe(2);
   });
 });
